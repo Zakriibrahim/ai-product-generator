@@ -1,154 +1,296 @@
 /**
- * Fetch Products from WooCommerce - with CORS fallback
+ * Fetched Products Manager
+ * Separate manager for products fetched from WooCommerce
  */
-const FetchProducts = {
-  async fetchFromStore(filters = {}) {
-    Utils.notify("Fetching products from WooCommerce...", "info");
-    const baseParams = new URLSearchParams({
-      per_page: filters.limit || 20,
-      page: filters.page || 1,
-    });
-    if (filters.search) baseParams.append("search", filters.search);
-    if (filters.sku) baseParams.append("sku", filters.sku);
-    const baseUrl = `${CONFIG.WOO_URL}/wp-json/wc/v3/products?${baseParams}&consumer_key=${CONFIG.WOO_CONSUMER_KEY}&consumer_secret=${CONFIG.WOO_CONSUMER_SECRET}`;
-    const candidates = [
-      baseUrl,
-      `https://cors.isomorphic-git.org/${baseUrl}`,
-      `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`,
-    ];
-    for (const url of candidates) {
-      try {
-        const res = await fetch(url, { headers: { Accept: "application/json" }, method: "GET" });
-        if (!res.ok) { try { console.warn("[Woo Fetch]", res.status, await res.text()); } catch {} continue; }
-        const data = await res.json();
-        if (Array.isArray(data)) { Utils.notify(`✓ Fetched ${data.length} products`, "success"); return data; }
-      } catch (err) { console.warn("[Woo Fetch] Error", err); }
+
+const FetchedManager = {
+  fetchedProducts: [],
+  selectedIndices: [],
+
+  addProduct(product) {
+    this.fetchedProducts.push(product);
+    this.updateUI();
+  },
+
+  updateProduct(index, product) {
+    if (index >= 0 && index < this.fetchedProducts.length) {
+      this.fetchedProducts[index] = product;
+      this.updateUI();
     }
-    Utils.notify("Failed to fetch products (CORS or API error). Try a different keyword/SKU.", "error", 5000);
-    return [];
   },
 
-  convertToLocalFormat(wooProduct) {
-    return {
-      id: wooProduct.id,
-      title: wooProduct.name,
-      description: wooProduct.description,
-      short_description: wooProduct.short_description,
-      price: wooProduct.price || wooProduct.regular_price || "0",
-      sku: wooProduct.sku || "N/A",
-      tags: wooProduct.tags?.map((t) => t.name) || [],
-      categories: wooProduct.categories?.map((c) => c.name) || [],
-      selectedCategories: wooProduct.categories?.map((c) => c.id) || [],
-      galleryImageUrls: wooProduct.images?.map((img) => img.src) || [],
-      variations: [],
-      attributes: wooProduct.attributes || [],
-      default_attributes: wooProduct.default_attributes || [],
-      mode: "fetched",
-      woocommerceId: wooProduct.id,
-      permalink: wooProduct.permalink,
-    };
+  deleteProduct(index) {
+    if (!confirm('Remove this fetched product?')) return;
+    if (index >= 0 && index < this.fetchedProducts.length) {
+      this.fetchedProducts.splice(index, 1);
+      this.updateUI();
+      Utils.notify('✓ Product removed', 'success');
+    }
   },
 
-  showFetchModal() {
-    const modal = document.getElementById("modalContainer");
-    const modalBg = document.getElementById("modalBg");
-    modal.innerHTML = `
-      <div class="modal-card">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-indigo-700">
-            <i class="fas fa-download"></i> Fetch Products from WooCommerce
-          </h2>
-          <button onclick="closeModal()" class="text-3xl text-zinc-400 hover:text-zinc-600">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <div class="space-y-4">
-          <div>
-            <label class="block font-semibold mb-2">Search by Name</label>
-            <input type="text" id="fetch-search" placeholder="e.g., T-shirt, Phone..."
-                   class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-          </div>
-          <div>
-            <label class="block font-semibold mb-2">Or Search by SKU</label>
-            <input type="text" id="fetch-sku" placeholder="Enter exact SKU"
-                   class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-          </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block font-semibold mb-2">Limit</label>
-              <select id="fetch-limit" class="w-full p-3 border-2 border-zinc-200 rounded-lg">
-                <option value="10">10 products</option>
-                <option value="20" selected>20 products</option>
-                <option value="50">50 products</option>
-                <option value="100">100 products</option>
-              </select>
-            </div>
-            <div>
-              <label class="block font-semibold mb-2">Page</label>
-              <input type="number" id="fetch-page" value="1" min="1"
-                     class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-            </div>
-          </div>
-          <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-            <p class="text-sm text-blue-800">
-              <i class="fas fa-info-circle"></i>
-              <strong>Store:</strong> ${CONFIG.WOO_URL}<br>
-              <strong>Tip:</strong> Leave search empty to fetch all products
-            </p>
-          </div>
-        </div>
-        <div class="flex gap-3 justify-end mt-6 pt-6 border-t">
-          <button onclick="closeModal()" class="btn btn-gray">
-            <i class="fas fa-times"></i> Cancel
-          </button>
-          <button onclick="FetchProducts.executeFetch()" class="btn btn-indigo">
-            <i class="fas fa-download"></i> Fetch Products
-          </button>
-        </div>
+  clearAll() {
+    if (!confirm('Clear all fetched products?')) return;
+    this.fetchedProducts = [];
+    this.selectedIndices = [];
+    this.updateUI();
+    Utils.notify('✓ All fetched products cleared', 'success');
+  },
+
+  updateUI() {
+    const countEl = document.getElementById('fetchedProductCount');
+    if (countEl) countEl.textContent = this.fetchedProducts.length;
+    this.render();
+    this.updateEmptyState();
+  },
+
+  render() {
+    const container = document.getElementById('fetched-content');
+    if (!container) return;
+
+    if (this.fetchedProducts.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = this.fetchedProducts.map((p, i) => this.renderCard(p, i)).join('');
+  },
+
+  renderCard(product, index) {
+    const hasCategories = product.selectedCategories && product.selectedCategories.length > 0;
+
+    let statusBadge = '';
+    if (hasCategories) {
+      statusBadge = '<span class="status-badge status-ready"><i class="fas fa-check-circle"></i> Ready</span>';
+    } else {
+      statusBadge = '<span class="status-badge status-warning"><i class="fas fa-exclamation-triangle"></i> No Categories</span>';
+    }
+
+    statusBadge += ' <span class="status-badge" style="background:#dbeafe;color:#1e40af;"><i class="fas fa-cloud"></i> From Store</span>';
+
+    let categoriesHtml = '';
+    if (hasCategories) {
+      const catNames = product.selectedCategories
+      .map(id => CategoryManager.getCategoryName(id))
+      .slice(0, 3);
+      categoriesHtml = catNames.map(name =>
+      `<span class="cat-badge">${Utils.escapeHtml(name)}</span>`
+      ).join('');
+      if (product.selectedCategories.length > 3) {
+        categoriesHtml += `<span class="text-xs text-zinc-500">+${product.selectedCategories.length - 3} more</span>`;
+      }
+    }
+
+    const galleryHtml = (product.galleryImageUrls || []).slice(0, 4).map((url, i) => `
+    <div class="relative">
+    <img src="${url}" class="img-thumb" title="Image ${i}" alt="Product image ${i}">
+    <div class="absolute bottom-1 left-1 bg-purple-600 text-white text-xs font-bold rounded px-1.5 py-0.5">${i}</div>
+    </div>
+    `).join('');
+
+    const shortDesc = product.short_description || '';
+    const descPreview = shortDesc.length > 100 ? shortDesc.substring(0, 100) + '...' : shortDesc;
+
+    return `
+    <div class="product-card fade-in" data-index="${index}">
+    <div class="flex gap-4 items-start mb-4">
+    <div class="flex-1">
+    <div class="flex items-center gap-3 mb-2 flex-wrap">
+    <h3 class="font-bold text-xl text-purple-700">
+    ${Utils.escapeHtml(product.title)}
+    </h3>
+    ${statusBadge}
+    </div>
+
+    <div class="flex items-center gap-3 mb-3 text-sm text-zinc-500">
+    <span><i class="fas fa-barcode"></i> ${Utils.escapeHtml(product.sku)}</span>
+    <span>•</span>
+    <span><i class="fas fa-hashtag"></i> WooCommerce ID: ${product.woocommerceId || 'N/A'}</span>
+    </div>
+
+    <div class="mb-3">
+    <p class="text-zinc-600">${Utils.escapeHtml(descPreview)}</p>
+    </div>
+
+    <div class="flex items-center gap-2 mb-3">
+    <span class="text-2xl font-bold text-green-600">${product.price} MAD</span>
+    ${product.tags && product.tags.length > 0 ?
+      `<span class="text-xs text-zinc-400">• ${product.tags.slice(0, 3).join(', ')}</span>` : ''}
       </div>
+
+      ${categoriesHtml ? `
+        <div class="flex flex-wrap gap-2 mb-3">
+        ${categoriesHtml}
+        </div>
+        ` : ''}
+
+        <div class="flex gap-2 flex-wrap">
+        ${galleryHtml}
+        </div>
+        </div>
+        </div>
+
+        <div class="flex gap-2 justify-end pt-4 border-t flex-wrap">
+        <button onclick="FetchedManager.editProduct(${index})" class="btn btn-blue btn-sm">
+        <i class="fas fa-pen"></i> Edit
+        </button>
+        <button onclick="RegenerateProducts.regenerateFetched(${index})" class="btn btn-purple btn-sm">
+        <i class="fas fa-sync-alt"></i> Regenerate
+        </button>
+        <button onclick="ImageEnhancer.showEnhanceModalFetched(${index})" class="btn btn-yellow btn-sm">
+        <i class="fas fa-wand-magic-sparkles"></i> Enhance
+        </button>
+        <button onclick="FetchedManager.moveToGenerated(${index})" class="btn btn-green btn-sm">
+        <i class="fas fa-arrow-right"></i> Move to Products
+        </button>
+        <button onclick="FetchedManager.deleteProduct(${index})" class="btn btn-pink btn-sm">
+        <i class="fas fa-trash"></i> Remove
+        </button>
+        </div>
+        </div>
+        `;
+  },
+
+  updateEmptyState() {
+    const content = document.getElementById('fetched-content');
+    const empty = document.getElementById('fetched-empty');
+
+    if (!content || !empty) return;
+
+    if (this.fetchedProducts.length === 0) {
+      content.style.display = 'none';
+      empty.style.display = 'flex';
+    } else {
+      content.style.display = 'grid';
+      empty.style.display = 'none';
+    }
+  },
+
+  editProduct(index) {
+    const product = this.fetchedProducts[index];
+    if (!product) return;
+
+    // Use same edit modal as ProductManager
+    const modal = document.getElementById('modalContainer');
+    const modalBg = document.getElementById('modalBg');
+
+    modal.innerHTML = `
+    <div class="modal-card" style="max-height: 90vh; overflow-y: auto;">
+    <div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-purple-700">
+    <i class="fas fa-edit"></i> Edit Fetched Product
+    </h2>
+    <button onclick="closeModal()" class="text-3xl text-zinc-400 hover:text-zinc-600">
+    <i class="fas fa-times"></i>
+    </button>
+    </div>
+
+    <div class="space-y-4">
+    <div>
+    <label class="block font-semibold mb-2">Title</label>
+    <input type="text" id="edit-title" value="${Utils.escapeHtml(product.title)}"
+    class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+    <div>
+    <label class="block font-semibold mb-2">Price (MAD)</label>
+    <input type="number" id="edit-price" value="${product.price}" step="0.01"
+    class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+    </div>
+    <div>
+    <label class="block font-semibold mb-2">SKU</label>
+    <input type="text" id="edit-sku" value="${Utils.escapeHtml(product.sku)}"
+    class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+    </div>
+    </div>
+
+    <div>
+    <label class="block font-semibold mb-2">Short Description</label>
+    <textarea id="edit-short-desc" rows="3"
+    class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none">${Utils.escapeHtml(product.short_description || '')}</textarea>
+    </div>
+
+    <div>
+    <label class="block font-semibold mb-2">Full Description</label>
+    <textarea id="edit-desc" rows="5"
+    class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none">${Utils.escapeHtml(product.description || '')}</textarea>
+    </div>
+
+    <div>
+    <label class="block font-semibold mb-2">Tags (comma separated)</label>
+    <input type="text" id="edit-tags" value="${(product.tags || []).join(', ')}"
+    class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+    </div>
+
+    <div>
+    <label class="block font-semibold mb-2">Categories</label>
+    <div id="edit-categories" class="max-h-48 overflow-y-auto p-3 border-2 border-zinc-200 rounded-lg">
+    ${CategoryManager.renderCategoryTree(product.selectedCategories || [])}
+    </div>
+    </div>
+    </div>
+
+    <div class="flex gap-3 justify-end mt-6 pt-6 border-t">
+    <button onclick="closeModal()" class="btn btn-gray">
+    <i class="fas fa-times"></i> Cancel
+    </button>
+    <button onclick="FetchedManager.saveEdit(${index})" class="btn btn-indigo">
+    <i class="fas fa-save"></i> Save Changes
+    </button>
+    </div>
+    </div>
     `;
-    modal.classList.remove("hidden");
-    modalBg.classList.remove("hidden");
+
+    modal.classList.remove('hidden');
+    modalBg.classList.remove('hidden');
   },
 
-  async executeFetch() {
-    const search = document.getElementById("fetch-search")?.value.trim() || "";
-    const sku = document.getElementById("fetch-sku")?.value.trim() || "";
-    const limit = parseInt(document.getElementById("fetch-limit")?.value || "20");
-    const page = parseInt(document.getElementById("fetch-page")?.value || "1");
+  saveEdit(index) {
+    const product = this.fetchedProducts[index];
+    if (!product) return;
+
+    product.title = document.getElementById('edit-title').value;
+    product.price = document.getElementById('edit-price').value;
+    product.sku = document.getElementById('edit-sku').value;
+    product.short_description = document.getElementById('edit-short-desc').value;
+    product.description = document.getElementById('edit-desc').value;
+    product.tags = document.getElementById('edit-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+
+    const selectedCats = Array.from(document.querySelectorAll('#edit-categories .category-checkbox:checked'))
+    .map(cb => parseInt(cb.value));
+    product.selectedCategories = selectedCats;
+
+    this.updateProduct(index, product);
     closeModal();
-    const filters = { limit, page };
-    if (search) filters.search = search;
-    if (sku) filters.sku = sku;
-    const products = await this.fetchFromStore(filters);
-    if (products.length === 0) { Utils.notify("No products found. Try a different keyword or SKU.", "warning", 5000); return; }
-    products.forEach((wooProduct) => {
-      const localProduct = this.convertToLocalFormat(wooProduct);
-      FetchedManager.addProduct(localProduct);
-    });
-    switchTab("fetched");
-    Utils.notify(`✓ Added ${products.length} products to Fetched Products tab!`, "success", 5000);
+    Utils.notify('✓ Fetched product updated!', 'success');
   },
-};
-window.FetchProducts = FetchProducts;
-console.log("✅ FetchProducts loaded (CORS fallback)");
 
-// Make the Fetch button clickable regardless of script order
-(function attachFetchButton() {
-  const bind = () => {
-    const btn = document.getElementById("fetchProductsBtn");
-    if (!btn) return false;
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      FetchProducts.showFetchModal();
-    }, { once: false });
-    return true;
-  };
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => { bind(); });
-  } else {
-    // DOM is ready; bind now (and retry once if button not yet in DOM)
-    if (!bind()) setTimeout(bind, 100);
+  moveToGenerated(index) {
+    const product = this.fetchedProducts[index];
+    if (!product) return;
+
+    if (!confirm(`Move "${product.title}" to Products tab?`)) return;
+
+    ProductManager.addProduct(product);
+    this.fetchedProducts.splice(index, 1);
+    this.updateUI();
+
+    Utils.notify('✓ Product moved to Products tab!', 'success');
+  },
+
+  async uploadSelected() {
+    if (this.fetchedProducts.length === 0) {
+      Utils.notify('No fetched products to upload', 'warning');
+      return;
+    }
+
+    if (!confirm(`Update ${this.fetchedProducts.length} products in WooCommerce store?`)) return;
+
+    Utils.notify('Uploading updates to WooCommerce...', 'info');
+    await Exporters.uploadToWooCommerce(this.fetchedProducts, 'en');
   }
-})();
+};
+
+window.FetchedManager = FetchedManager;
+
+console.log('✅ FetchedManager loaded');

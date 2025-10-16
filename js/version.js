@@ -3,30 +3,30 @@
  */
 
 const VersionManager = {
-  version: '2.1.1',
-  lastUpdated: '2025-10-16 18:36:07 UTC',
+  version: '2.1.2',
+  lastUpdated: '2025-10-16 19:14:41 UTC',
   changelog: [
     {
-      version: '2.1.1',
+      version: '2.1.2',
       date: '2025-10-16',
       features: [
-        'CRITICAL FIX: UI buttons now working',
-        'Added dedicated Fetched Products tab',
-        'Separate management for fetched products',
-        'Added remove.bg API key integration',
-        'Fixed JavaScript initialization errors',
-        'Improved tab switching reliability'
+        'Fix: Tab header markup (all tabs are clickable)',
+        'Add: Dedicated Fetched Products tab content',
+        'Fix: FetchedManager guards to avoid DOM errors',
+        'Fix: Smaller "Go to Upload" button in empty state',
+        'Improve: WooCommerce fetch with CORS proxy fallback'
       ]
     },
     {
       version: '2.1.1',
       date: '2025-10-16',
       features: [
-        'Fetch products from WooCommerce',
-        'Regenerate product data with AI',
-        'AI image background removal',
-        'Image enhancement tools',
-        'Product search & filter'
+        'CRITICAL FIX: UI buttons now working',
+        'Added dedicated Fetched Products tab (initial)',
+        'Separate management for fetched products',
+        'Added remove.bg API key integration',
+        'Fixed JavaScript initialization errors',
+        'Improved tab switching reliability'
       ]
     },
     {
@@ -48,72 +48,72 @@ const VersionManager = {
       ]
     }
   ],
-  
+
   getVersionString() {
     return `v${this.version}`;
   },
-  
+
   getFullVersionString() {
     return `v${this.version} - Updated ${this.lastUpdated}`;
   },
-  
+
   displayVersion() {
     const versionEl = document.getElementById('appVersion');
     if (versionEl) {
       versionEl.innerHTML = `
-        <div class="version-badge" onclick="VersionManager.showChangelog()" title="Click to view changelog">
-          <i class="fas fa-code-branch"></i> ${this.getVersionString()}
-          <span class="version-pulse"></span>
-        </div>
+      <div class="version-badge" onclick="VersionManager.showChangelog()" title="Click to view changelog">
+      <i class="fas fa-code-branch"></i> ${this.getVersionString()}
+      <span class="version-pulse"></span>
+      </div>
       `;
     }
   },
-  
+
   showChangelog() {
     const modal = document.getElementById('modalContainer');
     const modalBg = document.getElementById('modalBg');
-    
+
     const changelogHtml = this.changelog.map(entry => `
-      <div class="changelog-entry">
-        <div class="flex items-center gap-3 mb-3">
-          <span class="text-2xl font-bold text-indigo-600">v${entry.version}</span>
-          <span class="text-sm text-zinc-500">${entry.date}</span>
-        </div>
-        <ul class="space-y-2">
-          ${entry.features.map(f => `
-            <li class="flex items-start gap-2">
-              <i class="fas fa-check-circle text-green-500 mt-1"></i>
-              <span>${f}</span>
-            </li>
-          `).join('')}
-        </ul>
+    <div class="changelog-entry">
+    <div class="flex items-center gap-3 mb-3">
+    <span class="text-2xl font-bold text-indigo-600">v${entry.version}</span>
+    <span class="text-sm text-zinc-500">${entry.date}</span>
+    </div>
+    <ul class="space-y-2">
+    ${entry.features.map(f => `
+      <li class="flex items-start gap-2">
+      <i class="fas fa-check-circle text-green-500 mt-1"></i>
+      <span>${f}</span>
+      </li>
+      `).join('')}
+      </ul>
       </div>
-    `).join('');
-    
-    modal.innerHTML = `
+      `).join('');
+
+      modal.innerHTML = `
       <div class="modal-card">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-2xl font-bold text-indigo-700">
-            <i class="fas fa-history"></i> Version History
-          </h2>
-          <button onclick="closeModal()" class="text-3xl text-zinc-400 hover:text-zinc-600">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        
-        <div class="space-y-6">
-          ${changelogHtml}
-        </div>
-        
-        <div class="mt-6 pt-6 border-t text-center text-sm text-zinc-500">
-          Created by <strong>Zakriibrahim</strong> • 
-          Current: <strong class="text-indigo-600">${this.getFullVersionString()}</strong>
-        </div>
+      <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold text-indigo-700">
+      <i class="fas fa-history"></i> Version History
+      </h2>
+      <button onclick="closeModal()" class="text-3xl text-zinc-400 hover:text-zinc-600">
+      <i class="fas fa-times"></i>
+      </button>
       </div>
-    `;
-    
-    modal.classList.remove('hidden');
-    modalBg.classList.remove('hidden');
+
+      <div class="space-y-6">
+      ${changelogHtml}
+      </div>
+
+      <div class="mt-6 pt-6 border-t text-center text-sm text-zinc-500">
+      Created by <strong>Zakriibrahim</strong> •
+      Current: <strong class="text-indigo-600">${this.getFullVersionString()}</strong>
+      </div>
+      </div>
+      `;
+
+      modal.classList.remove('hidden');
+      modalBg.classList.remove('hidden');
   }
 };
 
