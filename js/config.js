@@ -19,6 +19,15 @@ const CONFIG = {
   WOO_URL: "https://farhashop.com",
   WOO_CONSUMER_KEY: "ck_aab52a81e7a2aa5bc4714323696f781c3b62c89b",
   WOO_CONSUMER_SECRET: "cs_a5fe650bd337aa30f1f358d86ba24bf6cacbfba4",
+
+  // ========================================
+  // SOCIAL (Facebook) - New
+  // ========================================
+  FACEBOOK: {
+    // Replace after running the prompts below, or leave as-is and fill in the Social tab UI
+    PAGE_ID: "cd ~/ai-product-generator && cp -r . ../ai-product-generator-BACKUP-$(date +%Y%m%d-%H%M%S) && mkdir -p js && cat > js/socialPoster.js <<'EOF_SOCIAL'",
+    PAGE_ACCESS_TOKEN: "/**"
+  },
   
   // ========================================
   // CORS PROXIES (For API Calls)
