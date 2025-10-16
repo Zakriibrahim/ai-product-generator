@@ -795,3 +795,19 @@ window.closeModal = closeModal;
 console.log('✅ Main application loaded');
 console.log('👤 User:', CONFIG.USER_LOGIN);
 console.log('🎉 Ready to generate products!');
+
+// Initialize new features
+document.addEventListener('DOMContentLoaded', () => {
+  // Display version
+  VersionManager.displayVersion();
+  
+  // Fetch products button
+  const fetchBtn = document.getElementById('fetchProductsBtn');
+  if (fetchBtn) {
+    fetchBtn.addEventListener('click', () => {
+      FetchProducts.showFetchModal();
+    });
+  }
+});
+
+console.log('✅ New features initialized:', VersionManager.getFullVersionString());

@@ -36,6 +36,7 @@
     <div class="sticky-header">
       <div class="text-center mb-4">
         <h1 class="text-4xl font-bold mb-2 text-indigo-700 flex justify-center items-center gap-3">
+        <div id="appVersion" class="mt-2"></div>
           <i class="fas fa-cart-plus"></i>
           AI Product Generator Pro
           <i class="fas fa-magic"></i>
@@ -53,6 +54,10 @@
           <option value="fr">Français</option>
           <option value="ar">العربية</option>
         </select>
+        
+        <button id="fetchProductsBtn" class="btn btn-purple">
+          <i class="fas fa-download"></i> Fetch from Store
+        </button>
         
         <button id="uploadBtn" class="btn btn-purple" disabled>
           <i class="fas fa-upload"></i> Upload to WooCommerce
@@ -339,5 +344,9 @@
   <script src="js/templates.js"></script>
   <script src="js/bulkEdit.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/version.js"></script>
+  <script src="js/fetchProducts.js"></script>
+  <script src="js/regenerate.js"></script>
+  <script src="js/imageEnhancer.js"></script>
 </body>
 </html>
