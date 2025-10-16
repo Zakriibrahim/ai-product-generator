@@ -7,17 +7,11 @@ const ProductManager = {
   products: [],
   selectedIndices: [],
   
-  /**
-   * Add product to store
-   */
   addProduct(product) {
     this.products.push(product);
     this.updateUI();
   },
   
-  /**
-   * Update product
-   */
   updateProduct(index, product) {
     if (index >= 0 && index < this.products.length) {
       this.products[index] = product;
@@ -25,20 +19,16 @@ const ProductManager = {
     }
   },
   
-  /**
-   * Delete product
-   */
   deleteProduct(index) {
+    if (!confirm('Delete this product?')) return;
     if (index >= 0 && index < this.products.length) {
       this.products.splice(index, 1);
       this.selectedIndices = this.selectedIndices.filter(i => i !== index);
       this.updateUI();
+      Utils.notify('✓ Product deleted', 'success');
     }
   },
   
-  /**
-   * Delete multiple products
-   */
   deleteProducts(indices) {
     const sorted = [...indices].sort((a, b) => b - a);
     sorted.forEach(i => {
@@ -50,25 +40,16 @@ const ProductManager = {
     this.updateUI();
   },
   
-  /**
-   * Get product by index
-   */
   getProduct(index) {
     return this.products[index] || null;
   },
   
-  /**
-   * Clear all products
-   */
   clearAll() {
     this.products = [];
     this.selectedIndices = [];
     this.updateUI();
   },
   
-  /**
-   * Update UI
-   */
   updateUI() {
     document.getElementById('productCount').textContent = this.products.length;
     document.getElementById('uploadBtn').disabled = this.products.length === 0;
@@ -77,9 +58,6 @@ const ProductManager = {
     this.updateBulkActionsBar();
   },
   
-  /**
-   * Render all products
-   */
   renderProducts() {
     const container = document.getElementById('content');
     
@@ -91,15 +69,11 @@ const ProductManager = {
     container.innerHTML = this.products.map((p, i) => this.renderProductCard(p, i)).join('');
   },
   
-  /**
-   * Render single product card
-   */
   renderProductCard(product, index) {
     const isSelected = this.selectedIndices.includes(index);
     const isVariable = product.variations && product.variations.length > 0;
     const hasCategories = product.selectedCategories && product.selectedCategories.length > 0;
     
-    // Status badge
     let statusBadge = '';
     if (hasCategories) {
       statusBadge = '<span class="status-badge status-ready"><i class="fas fa-check-circle"></i> Ready</span>';
@@ -111,7 +85,6 @@ const ProductManager = {
       statusBadge += ' <span class="status-badge status-variable"><i class="fas fa-sitemap"></i> Variable</span>';
     }
     
-    // Categories display
     let categoriesHtml = '';
     if (hasCategories) {
       const catNames = product.selectedCategories
@@ -125,13 +98,16 @@ const ProductManager = {
       }
     }
     
-    // Gallery images
     const galleryHtml = (product.galleryImageUrls || []).slice(0, 4).map((url, i) => `
       <div class="relative">
         <img src="${url}" class="img-thumb" title="Image ${i}" alt="Product image ${i}">
         <div class="absolute bottom-1 left-1 bg-indigo-600 text-white text-xs font-bold rounded px-1.5 py-0.5">${i}</div>
       </div>
     `).join('');
+    
+    const shortDesc = product.short_description || '';
+    const fullDesc = product.description || '';
+    const descPreview = shortDesc.length > 100 ? shortDesc.substring(0, 100) + '...' : shortDesc;
     
     return `
       <div class="product-card fade-in ${isSelected ? 'product-card-selected' : ''}" data-index="${index}">
@@ -158,7 +134,16 @@ const ProductManager = {
               </span>
             </div>
             
-            <p class="text-zinc-600 mb-3 line-clamp-2">${Utils.escapeHtml(product.short_description)}</p>
+            <div class="mb-3">
+              <p class="text-zinc-600" id="desc-preview-${index}">${Utils.escapeHtml(descPreview)}</p>
+              <p class="text-zinc-600 hidden" id="desc-full-${index}">${Utils.escapeHtml(shortDesc)}</p>
+              ${shortDesc.length > 100 ? `
+                <button onclick="ProductManager.toggleDescription(${index})" 
+                        class="text-indigo-600 text-sm font-semibold hover:text-indigo-800 mt-1">
+                  <span id="desc-toggle-${index}">Show more <i class="fas fa-chevron-down"></i></span>
+                </button>
+              ` : ''}
+            </div>
             
             <div class="flex items-center gap-2 mb-3">
               <span class="text-2xl font-bold text-green-600">${product.price} MAD</span>
@@ -199,9 +184,22 @@ const ProductManager = {
     `;
   },
   
-  /**
-   * Toggle product selection
-   */
+  toggleDescription(index) {
+    const preview = document.getElementById(`desc-preview-${index}`);
+    const full = document.getElementById(`desc-full-${index}`);
+    const toggle = document.getElementById(`desc-toggle-${index}`);
+    
+    if (preview.classList.contains('hidden')) {
+      preview.classList.remove('hidden');
+      full.classList.add('hidden');
+      toggle.innerHTML = 'Show more <i class="fas fa-chevron-down"></i>';
+    } else {
+      preview.classList.add('hidden');
+      full.classList.remove('hidden');
+      toggle.innerHTML = 'Show less <i class="fas fa-chevron-up"></i>';
+    }
+  },
+  
   toggleSelection(index, selected) {
     if (selected) {
       if (!this.selectedIndices.includes(index)) {
@@ -214,9 +212,6 @@ const ProductManager = {
     this.renderProducts();
   },
   
-  /**
-   * Update bulk actions bar
-   */
   updateBulkActionsBar() {
     const bar = document.getElementById('bulkActionsBar');
     const count = document.getElementById('bulkSelectedCount');
@@ -232,9 +227,6 @@ const ProductManager = {
     }
   },
   
-  /**
-   * Update empty state
-   */
   updateEmptyState() {
     const content = document.getElementById('content');
     const empty = document.getElementById('emptyState');
@@ -248,20 +240,124 @@ const ProductManager = {
     }
   },
   
-  /**
-   * Edit product (open modal)
-   */
   editProduct(index) {
     const product = this.getProduct(index);
     if (!product) return;
     
-    // TODO: Open edit modal
-    Utils.notify('Edit modal coming soon! Use bulk edit for now.', 'info');
+    const modal = document.getElementById('modalContainer');
+    const modalBg = document.getElementById('modalBg');
+    
+    modal.innerHTML = `
+      <div class="modal-card">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold text-indigo-700">
+            <i class="fas fa-edit"></i> Edit Product
+          </h2>
+          <button onclick="closeModal()" class="text-3xl text-zinc-400 hover:text-zinc-600">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <div class="space-y-4">
+          <!-- Title -->
+          <div>
+            <label class="block font-semibold mb-2">Title</label>
+            <input type="text" id="edit-title" value="${Utils.escapeHtml(product.title)}" 
+                   class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+          </div>
+          
+          <!-- Price & SKU -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block font-semibold mb-2">Price (MAD)</label>
+              <input type="number" id="edit-price" value="${product.price}" step="0.01"
+                     class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block font-semibold mb-2">SKU</label>
+              <input type="text" id="edit-sku" value="${Utils.escapeHtml(product.sku)}"
+                     class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+            </div>
+          </div>
+          
+          <!-- Short Description -->
+          <div>
+            <label class="block font-semibold mb-2">Short Description</label>
+            <textarea id="edit-short-desc" rows="3"
+                      class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none">${Utils.escapeHtml(product.short_description || '')}</textarea>
+          </div>
+          
+          <!-- Full Description -->
+          <div>
+            <label class="block font-semibold mb-2">Full Description</label>
+            <textarea id="edit-desc" rows="5"
+                      class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none">${Utils.escapeHtml(product.description || '')}</textarea>
+          </div>
+          
+          <!-- Tags -->
+          <div>
+            <label class="block font-semibold mb-2">Tags (comma separated)</label>
+            <input type="text" id="edit-tags" value="${(product.tags || []).join(', ')}"
+                   class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+          </div>
+          
+          <!-- Categories -->
+          <div>
+            <label class="block font-semibold mb-2">Categories</label>
+            <div id="edit-categories" class="max-h-48 overflow-y-auto p-3 border-2 border-zinc-200 rounded-lg">
+              ${CategoryManager.renderCategoryTree(product.selectedCategories || [])}
+            </div>
+          </div>
+          
+          <!-- Gallery -->
+          <div>
+            <label class="block font-semibold mb-2">Product Images</label>
+            <div class="flex gap-2 flex-wrap p-3 border-2 border-zinc-200 rounded-lg">
+              ${(product.galleryImageUrls || []).map((url, i) => `
+                <div class="relative">
+                  <img src="${url}" class="img-thumb" alt="Image ${i}">
+                  <div class="absolute bottom-1 left-1 bg-indigo-600 text-white text-xs font-bold rounded px-1.5 py-0.5">${i}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex gap-3 justify-end mt-6 pt-6 border-t">
+          <button onclick="closeModal()" class="btn btn-gray">
+            <i class="fas fa-times"></i> Cancel
+          </button>
+          <button onclick="ProductManager.saveEdit(${index})" class="btn btn-indigo">
+            <i class="fas fa-save"></i> Save Changes
+          </button>
+        </div>
+      </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    modalBg.classList.remove('hidden');
   },
   
-  /**
-   * Duplicate product
-   */
+  saveEdit(index) {
+    const product = this.getProduct(index);
+    if (!product) return;
+    
+    product.title = document.getElementById('edit-title').value;
+    product.price = document.getElementById('edit-price').value;
+    product.sku = document.getElementById('edit-sku').value;
+    product.short_description = document.getElementById('edit-short-desc').value;
+    product.description = document.getElementById('edit-desc').value;
+    product.tags = document.getElementById('edit-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+    
+    const selectedCats = Array.from(document.querySelectorAll('#edit-categories .category-checkbox:checked'))
+      .map(cb => parseInt(cb.value));
+    product.selectedCategories = selectedCats;
+    
+    this.updateProduct(index, product);
+    closeModal();
+    Utils.notify('✓ Product updated successfully!', 'success');
+  },
+  
   duplicateProduct(index) {
     const product = this.getProduct(index);
     if (!product) return;
@@ -277,7 +373,6 @@ const ProductManager = {
 
 window.ProductManager = ProductManager;
 
-// Global functions for inline onclick handlers
 window.toggleSelectAll = function(checkbox) {
   if (checkbox.checked) {
     ProductManager.selectedIndices = ProductManager.products.map((_, i) => i);
@@ -294,4 +389,4 @@ window.clearSelection = function() {
   ProductManager.updateBulkActionsBar();
 };
 
-console.log('✅ ProductManager loaded');
+console.log('✅ ProductManager loaded (ENHANCED VERSION)');

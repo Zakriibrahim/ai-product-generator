@@ -1,15 +1,12 @@
 /**
- * AI Assistant
- * Interactive chatbot helper
+ * AI Assistant - ENHANCED VERSION
+ * Smarter chatbot helper with context awareness
  */
 
 const AIAssistant = {
   messages: [],
   isOpen: false,
   
-  /**
-   * Initialize assistant
-   */
   init() {
     const toggle = document.getElementById('assistantToggle');
     const panel = document.getElementById('assistantPanel');
@@ -19,14 +16,36 @@ const AIAssistant = {
       if (this.isOpen) {
         panel.classList.remove('hidden');
         if (this.messages.length === 0) {
-          this.addMessage('bot', '👋 Hi! I\'m your AI assistant. I can help you with:\n\n• Uploading products\n• Quality checks\n• Bulk editing\n• Templates\n• Categories\n\nWhat would you like to do?');
+          this.addMessage('bot', `👋 **Hi Zakriibrahim!**
+
+I'm your AI assistant. I can help you with:
+
+📤 **Product Management**
+• Upload products to WooCommerce
+• Edit product details
+• Bulk operations
+
+✅ **Quality Control**
+• Run quality checks
+• Fix validation errors
+
+🎨 **Features**
+• Templates & bulk edit
+• Category management
+• Export options
+
+💡 **Tips**
+• "show stats" - View your numbers
+• "help" - See all commands
+• "upload" - Start uploading
+
+What would you like to do?`);
         }
       } else {
         panel.classList.add('hidden');
       }
     });
     
-    // Handle Enter key
     const input = document.getElementById('assistantInput');
     input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
@@ -35,9 +54,6 @@ const AIAssistant = {
     });
   },
   
-  /**
-   * Add message to chat
-   */
   addMessage(type, text) {
     this.messages.push({ type, text, timestamp: new Date() });
     
@@ -49,13 +65,9 @@ const AIAssistant = {
     `;
     container.appendChild(messageDiv);
     
-    // Scroll to bottom
     container.scrollTop = container.scrollHeight;
   },
   
-  /**
-   * Format message with markdown-like syntax
-   */
   formatMessage(text) {
     return Utils.escapeHtml(text)
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -63,9 +75,6 @@ const AIAssistant = {
       .replace(/\n/g, '<br>');
   },
   
-  /**
-   * Send user message
-   */
   send() {
     const input = document.getElementById('assistantInput');
     const message = input.value.trim();
@@ -75,172 +84,274 @@ const AIAssistant = {
     this.addMessage('user', message);
     input.value = '';
     
-    // Process message
     setTimeout(() => {
       const response = this.processMessage(message);
       this.addMessage('bot', response);
     }, 500);
   },
   
-  /**
-   * Process user message and generate response
-   */
   processMessage(message) {
     const lower = message.toLowerCase();
+    const productCount = ProductManager.products.length;
     
     // Help
-    if (lower.includes('help') || lower.includes('what can you do')) {
-      return `I can assist you with:
+    if (lower.includes('help') || lower === '?') {
+      return `🎯 **Available Commands**
 
-**📤 Product Upload**
-- "How do I upload products?"
-- "Upload my products to WooCommerce"
+**📊 Stats & Info**
+• "stats" or "status" - Your numbers
+• "what can you do" - Features list
 
-**✅ Quality Check**
-- "Run quality check"
-- "Check my products"
+**📤 Upload & Export**
+• "upload" - Upload to WooCommerce
+• "export" - Export options
+• "how to upload" - Step-by-step guide
 
-**✏️ Bulk Edit**
-- "Change all prices"
-- "Add tags to all products"
+**✅ Quality**
+• "quality check" or "check" - Validate products
+• "fix issues" - Quality help
 
-**📋 Templates**
-- "Show me templates"
-- "Apply T-shirt template"
+**✏️ Editing**
+• "how to edit" - Edit products
+• "bulk edit" - Mass operations
+• "templates" - Use templates
 
 **🏷️ Categories**
-- "Sync categories"
-- "How do categories work?"
+• "categories" - Category help
+• "sync categories" - Fetch from store
 
 Just ask me anything!`;
     }
     
-    // Upload
-    if (lower.includes('upload') || lower.includes('woocommerce')) {
-      if (ProductManager.products.length === 0) {
-        return `You don't have any products yet! Here's how to get started:
+    // Stats
+    if (lower.includes('stats') || lower.includes('status') || lower.includes('how many')) {
+      const withCategories = ProductManager.products.filter(p => p.selectedCategories?.length > 0).length;
+      const variable = ProductManager.products.filter(p => p.variations?.length > 0).length;
+      const selected = ProductManager.selectedIndices.length;
+      
+      if (productCount === 0) {
+        return `📊 **Your Statistics**
 
-1. Go to the **Upload** tab
-2. Click "Add Single Product Batch" or "Add Multi-Image Product"
-3. Upload your images
-4. Add optional notes for AI
-5. Click "Generate Products with AI"
-6. Review and edit products
-7. Click "Upload to WooCommerce"
+You haven't generated any products yet!
 
-Need help with any step?`;
+**Getting Started:**
+1. Go to **Upload** tab
+2. Add images (single or multi-image)
+3. Click "Generate Products with AI"
+4. Review and upload!
+
+Need help? Just ask!`;
       }
       
-      return `You have **${ProductManager.products.length} products** ready to upload!
+      return `📊 **Your Statistics**
 
-To upload:
+**Products:** ${productCount} total
+• With categories: ${withCategories}
+• Variable products: ${variable}
+• Simple products: ${productCount - variable}
+• Currently selected: ${selected}
+
+${productCount > 0 && withCategories < productCount ? '\n⚠️ Some products need categories!' : ''}
+${productCount > 0 ? '\n✅ Ready to upload to WooCommerce!' : ''}`;
+    }
+    
+    // Upload help
+    if (lower.includes('upload') || lower.includes('woo')) {
+      if (productCount === 0) {
+        return `📤 **Upload Guide**
+
+You need products first! Here's how:
+
+**Step 1: Add Images**
+• Go to **Upload** tab
+• Click "Add Single Batch" (each image = 1 product)
+• OR "Add Multi-Image" (all images = 1 product)
+
+**Step 2: Generate**
+• Upload your images
+• Add optional notes for AI
+• Click "Generate Products"
+
+**Step 3: Upload**
+• Review products
+• Run quality check
+• Click "Upload to WooCommerce"
+
+Ready to start? Go to Upload tab!`;
+      }
+      
+      return `📤 **Ready to Upload!**
+
+You have **${productCount} products** ready.
+
+**Quick Upload:**
 1. Go to **Products** tab
 2. Review your products
-3. Click "Upload to WooCommerce" button
+3. Click "Upload to WooCommerce"
 
-Want me to start the upload process?`;
+**Before uploading:**
+• Run quality check ✓
+• Assign categories ✓
+• Set correct prices ✓
+
+Want me to start uploading now?`;
     }
     
     // Quality check
-    if (lower.includes('quality') || lower.includes('check')) {
-      return `I'll run a quality check on your products!
+    if (lower.includes('quality') || lower.includes('check') || lower.includes('validate')) {
+      return `✅ **Quality Control**
 
-Go to the **Quality Check** tab and click "Run Quality Check".
+I'll help you ensure perfect uploads!
 
-I'll verify:
-✓ All products have titles
-✓ Descriptions are complete
-✓ Prices are valid
-✓ Images are present
-✓ Categories are assigned
+**To run quality check:**
+1. Go to **Quality Check** tab
+2. Click "Run Quality Check"
 
-This helps ensure successful uploads!`;
+**I check for:**
+• Valid titles & descriptions
+• Correct prices
+• Required images
+• Category assignment
+• SKU presence
+• Variation data
+
+${productCount > 0 ? '\n💡 Run it now to catch any issues!' : '\n⚠️ Generate products first!'}`;
+    }
+    
+    // Edit help
+    if (lower.includes('edit') && !lower.includes('bulk')) {
+      return `✏️ **Edit Products**
+
+**To edit a single product:**
+1. Go to **Products** tab
+2. Find your product
+3. Click the **"Edit"** button (blue pencil icon)
+4. Modify details in the popup
+5. Click **"Save Changes"**
+
+**You can edit:**
+• Title & descriptions
+• Price & SKU
+• Tags & categories
+• View all images
+
+**Pro tip:** Use "Show more" to see full descriptions!`;
     }
     
     // Bulk edit
-    if (lower.includes('bulk') || lower.includes('edit') || lower.includes('change all')) {
-      return `Bulk editing is powerful! Here's what you can do:
+    if (lower.includes('bulk')) {
+      return `🔧 **Bulk Edit Operations**
+
+Go to **Bulk Edit** tab for powerful tools:
 
 **📝 Find & Replace**
-Change text in all titles/descriptions
+Change text across all products
 
 **💰 Price Adjustment**
-Add, subtract, multiply, or set prices
+• Add/subtract amounts
+• Multiply by percentage
+• Set fixed prices
 
 **🏷️ Add Tags**
 Apply tags to all products at once
 
 **📁 Change Categories**
-Assign categories to all products
+Assign categories in bulk
 
-Go to the **Bulk Edit** tab to get started!`;
-    }
-    
-    // Templates
-    if (lower.includes('template')) {
-      return `Product templates save you time!
-
-Templates include:
-• Pre-defined attributes (Color, Size, etc.)
-• Default variations
-• Price modifiers
-
-Go to **Templates** tab to:
-- Use existing templates (T-Shirt, Shoes, Electronics)
-- Create your own custom templates
-
-Apply a template before generating products!`;
+These save TONS of time!`;
     }
     
     // Categories
     if (lower.includes('categor')) {
-      return `Categories help organize your store!
+      return `📁 **Category Management**
 
 **Auto-Selection:**
-The AI automatically selects matching categories based on product content.
+AI automatically picks matching categories based on product analysis.
 
-**Manual Selection:**
-You can also manually assign categories to products.
+**Manual Assignment:**
+1. Go to **Products** tab
+2. Click **Edit** on any product
+3. Check categories in the popup
 
 **Sync Categories:**
-Click "Sync Categories from Store" to fetch your WooCommerce categories.
+Click "Sync Categories from Store" to fetch latest from WooCommerce.
 
-Categories are shown in the Products tab!`;
+**Bulk Categories:**
+Go to **Bulk Edit** tab to assign to all products at once.`;
     }
     
-    // Stats
-    if (lower.includes('stats') || lower.includes('how many') || lower.includes('status')) {
-      const withCategories = ProductManager.products.filter(p => p.selectedCategories && p.selectedCategories.length > 0).length;
-      const variable = ProductManager.products.filter(p => p.variations && p.variations.length > 0).length;
-      
-      return `📊 **Your Statistics**
+    // Templates
+    if (lower.includes('template')) {
+      return `📋 **Product Templates**
 
-Total Products: **${ProductManager.products.length}**
-With Categories: **${withCategories}**
-Variable Products: **${variable}**
-Simple Products: **${ProductManager.products.length - variable}**
-Selected: **${ProductManager.selectedIndices.length}**
+Templates save time with pre-configured:
+• Attributes (Color, Size, etc.)
+• Variations
+• Default values
 
-${ProductManager.products.length === 0 ? '\n💡 Upload some images to get started!' : ''}`;
+**To use:**
+1. Go to **Templates** tab
+2. Choose a template (T-Shirt, Shoes, etc.)
+3. Click **"Apply"**
+4. Generate products normally
+
+**Create Custom:**
+Click "Create New Template" to make your own!`;
     }
     
-    // Default response
-    return `I'm not sure about that, but I can help with:
+    // Export
+    if (lower.includes('export') || lower.includes('csv')) {
+      return `📥 **Export Options**
 
-• **upload** - Upload products to WooCommerce
-• **quality** - Run quality checks
-• **bulk edit** - Edit multiple products
-• **templates** - Use product templates
-• **categories** - Manage categories
-• **stats** - View your statistics
-• **help** - Show all commands
+**CSV Export:**
+Click "Export CSV" button to download all products in spreadsheet format.
+
+**Use cases:**
+• Backup your products
+• Edit in Excel/Sheets
+• Import to other platforms
+• Share with team
+
+The CSV includes all product data, images, and categories!`;
+    }
+    
+    // Greetings
+    if (lower.includes('hi') || lower.includes('hello') || lower.includes('hey')) {
+      return `👋 **Hello Zakriibrahim!**
+
+How can I help you today?
+
+${productCount > 0 ? `You have **${productCount} products** ready.` : 'Ready to generate some products?'}
+
+Type "help" to see all commands!`;
+    }
+    
+    // Thanks
+    if (lower.includes('thank')) {
+      return `😊 **You're welcome!**
+
+Happy to help! Let me know if you need anything else.
+
+Your products are looking great! 🚀`;
+    }
+    
+    // Default
+    return `🤔 **Not sure about that...**
+
+Try these commands:
+• **"stats"** - View your numbers
+• **"upload"** - Upload help
+• **"edit"** - How to edit
+• **"help"** - All commands
+
+Or ask me:
+• "How do I...?"
+• "What is...?"
+• "Show me..."
 
 What would you like to know?`;
   },
   
-  /**
-   * Close assistant
-   */
   close() {
     this.isOpen = false;
     document.getElementById('assistantPanel').classList.add('hidden');
@@ -249,4 +360,4 @@ What would you like to know?`;
 
 window.AIAssistant = AIAssistant;
 
-console.log('✅ AIAssistant loaded');
+console.log('✅ AIAssistant loaded (ENHANCED VERSION)');
