@@ -1,6 +1,5 @@
 /**
- * Main Application
- * Initializes and coordinates all modules
+ * Main Application - FIXED VERSION v2.1.2
  */
 
 // Global state
@@ -12,7 +11,6 @@ let appState = {
   isGenerating: false
 };
 
-// Batch processing state
 let batchState = {
   tasks: [],
   current: 0,
@@ -24,85 +22,174 @@ let batchState = {
  * Initialize application
  */
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('🚀 Initializing AI Product Generator Pro...');
+  console.log('🚀 Initializing AI Product Generator Pro v2.1.2...');
   
-  // Initialize modules
+  // Initialize utilities
   Utils.updateClock();
-  AIAssistant.init();
-  Templates.load();
-  Templates.init();
-  CategoryManager.fetchCategories();
   
-  // Render initial empty states
+  // Initialize managers
+  if (window.CategoryManager) {
+    CategoryManager.fetchCategories();
+  }
+  
+  if (window.Templates) {
+    Templates.load();
+    Templates.init();
+  }
+  
+  if (window.AIAssistant) {
+    AIAssistant.init();
+  }
+  
+  // Initialize version display
+  if (window.VersionManager) {
+    VersionManager.version = '2.1.2';
+    VersionManager.lastUpdated = '2025-10-16 19:01:33 UTC';
+    VersionManager.displayVersion();
+  }
+  
+  // Initialize tab manager (CRITICAL FIX)
+  if (window.TabManager) {
+    TabManager.init();
+  }
+  
+  // Initialize product managers
+  if (window.ProductManager) {
+    ProductManager.updateUI();
+  }
+  
+  if (window.FetchedManager) {
+    FetchedManager.updateUI();
+  }
+  
+  // Render initial states
   renderSingleBatches();
   renderGroups();
-  ProductManager.updateUI();
   
   // Setup event listeners
   setupEventListeners();
   
   console.log('✅ Application ready!');
-  Utils.notify('Welcome back, ' + CONFIG.USER_LOGIN + '! 👋', 'success');
+  Utils.notify('Welcome back, Zakriibrahim! 👋', 'success');
 });
 
 /**
  * Setup all event listeners
  */
 function setupEventListeners() {
-  // Tab switching
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tab = btn.getAttribute('data-tab');
-      switchTab(tab);
-    });
-  });
-  
   // Upload section buttons
-  document.getElementById('addSingleBatchBtn').addEventListener('click', addSingleBatch);
-  document.getElementById('addGroupBtn').addEventListener('click', addProductGroup);
-  document.getElementById('syncCategoriesBtn').addEventListener('click', () => CategoryManager.fetchCategories());
-  document.getElementById('loadTemplateBtn').addEventListener('click', () => switchTab('templates'));
+  const addSingleBtn = document.getElementById('addSingleBatchBtn');
+  if (addSingleBtn) {
+    addSingleBtn.addEventListener('click', addSingleBatch);
+  }
+  
+  const addGroupBtn = document.getElementById('addGroupBtn');
+  if (addGroupBtn) {
+    addGroupBtn.addEventListener('click', addProductGroup);
+  }
+  
+  const syncCategoriesBtn = document.getElementById('syncCategoriesBtn');
+  if (syncCategoriesBtn) {
+    syncCategoriesBtn.addEventListener('click', () => CategoryManager.fetchCategories());
+  }
+  
+  const loadTemplateBtn = document.getElementById('loadTemplateBtn');
+  if (loadTemplateBtn) {
+    loadTemplateBtn.addEventListener('click', () => switchTab('templates'));
+  }
   
   // Action buttons
-  document.getElementById('generateBtn').addEventListener('click', startGeneration);
-  document.getElementById('uploadBtn').addEventListener('click', uploadProducts);
-  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
-  document.getElementById('stopBtn').addEventListener('click', stopGeneration);
+  const generateBtn = document.getElementById('generateBtn');
+  if (generateBtn) {
+    generateBtn.addEventListener('click', startGeneration);
+  }
+  
+  const uploadBtn = document.getElementById('uploadBtn');
+  if (uploadBtn) {
+    uploadBtn.addEventListener('click', uploadProducts);
+  }
+  
+  const exportCsvBtn = document.getElementById('exportCsvBtn');
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener('click', exportCsv);
+  }
+  
+  const stopBtn = document.getElementById('stopBtn');
+  if (stopBtn) {
+    stopBtn.addEventListener('click', stopGeneration);
+  }
+  
+  // Fetch button (FIXED)
+  const fetchBtn = document.getElementById('fetchProductsBtn');
+  if (fetchBtn && window.FetchProducts) {
+    fetchBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      FetchProducts.showFetchModal();
+    });
+  }
   
   // Session management
-  document.getElementById('saveSessionBtn').addEventListener('click', saveSession);
-  document.getElementById('loadSessionBtn').addEventListener('click', () => document.getElementById('loadSessionFile').click());
-  document.getElementById('loadSessionFile').addEventListener('change', loadSession);
+  const saveSessionBtn = document.getElementById('saveSessionBtn');
+  if (saveSessionBtn) {
+    saveSessionBtn.addEventListener('click', saveSession);
+  }
+  
+  const loadSessionBtn = document.getElementById('loadSessionBtn');
+  if (loadSessionBtn) {
+    loadSessionBtn.addEventListener('click', () => {
+      document.getElementById('loadSessionFile')?.click();
+    });
+  }
+  
+  const loadSessionFile = document.getElementById('loadSessionFile');
+  if (loadSessionFile) {
+    loadSessionFile.addEventListener('change', loadSession);
+  }
   
   // Quality check
-  document.getElementById('runQualityCheck').addEventListener('click', () => QualityCheck.run());
+  const runQualityCheck = document.getElementById('runQualityCheck');
+  if (runQualityCheck && window.QualityCheck) {
+    runQualityCheck.addEventListener('click', () => QualityCheck.run());
+  }
   
   // Templates
-  document.getElementById('createTemplateBtn').addEventListener('click', () => Templates.create());
+  const createTemplateBtn = document.getElementById('createTemplateBtn');
+  if (createTemplateBtn && window.Templates) {
+    createTemplateBtn.addEventListener('click', () => Templates.create());
+  }
   
   // Bulk edit
-  document.getElementById('bulkFindReplaceBtn').addEventListener('click', () => BulkEdit.findReplace());
-  document.getElementById('bulkPriceBtn').addEventListener('click', () => BulkEdit.adjustPrices());
-  document.getElementById('bulkAddTagsBtn').addEventListener('click', () => BulkEdit.addTags());
-  document.getElementById('bulkCategoriesBtn').addEventListener('click', () => BulkEdit.assignCategories());
+  const bulkFindReplaceBtn = document.getElementById('bulkFindReplaceBtn');
+  if (bulkFindReplaceBtn && window.BulkEdit) {
+    bulkFindReplaceBtn.addEventListener('click', () => BulkEdit.findReplace());
+  }
+  
+  const bulkPriceBtn = document.getElementById('bulkPriceBtn');
+  if (bulkPriceBtn && window.BulkEdit) {
+    bulkPriceBtn.addEventListener('click', () => BulkEdit.adjustPrices());
+  }
+  
+  const bulkAddTagsBtn = document.getElementById('bulkAddTagsBtn');
+  if (bulkAddTagsBtn && window.BulkEdit) {
+    bulkAddTagsBtn.addEventListener('click', () => BulkEdit.addTags());
+  }
+  
+  const bulkCategoriesBtn = document.getElementById('bulkCategoriesBtn');
+  if (bulkCategoriesBtn && window.BulkEdit) {
+    bulkCategoriesBtn.addEventListener('click', () => BulkEdit.assignCategories());
+  }
   
   // Bulk actions bar
-  document.getElementById('bulkDeleteBtn').addEventListener('click', () => BulkEdit.deleteSelected());
-  document.getElementById('bulkCategoryAssignBtn').addEventListener('click', () => BulkEdit.assignCategoriesToSelected());
-}
-
-/**
- * Switch between tabs
- */
-function switchTab(tabName) {
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+  if (bulkDeleteBtn && window.BulkEdit) {
+    bulkDeleteBtn.addEventListener('click', () => BulkEdit.deleteSelected());
+  }
   
-  const tabBtn = document.querySelector(`[data-tab="${tabName}"]`);
-  const tabContent = document.getElementById(`tab-${tabName}`);
-  
-  if (tabBtn) tabBtn.classList.add('active');
-  if (tabContent) tabContent.classList.add('active');
+  const bulkCategoryAssignBtn = document.getElementById('bulkCategoryAssignBtn');
+  if (bulkCategoryAssignBtn && window.BulkEdit) {
+    bulkCategoryAssignBtn.addEventListener('click', () => BulkEdit.assignCategoriesToSelected());
+  }
 }
 
 /**
@@ -165,7 +252,6 @@ function renderSingleBatches() {
     </div>
   `).join('');
   
-  // Setup file handlers for each batch
   appState.singleBatches.forEach(batch => {
     setupBatchFileHandlers(batch);
     renderBatchGallery(batch);
@@ -174,9 +260,9 @@ function renderSingleBatches() {
   updateGenerateButton();
 }
 
-/**
- * Setup file upload handlers for batch
- */
+// Continue with rest of main.js functions...
+// (setupBatchFileHandlers, handleBatchFiles, etc. - keeping existing code)
+
 function setupBatchFileHandlers(batch) {
   const input = document.getElementById(`upload-${batch.id}`);
   const dropzone = document.getElementById(`dropzone-${batch.id}`);
@@ -203,9 +289,6 @@ function setupBatchFileHandlers(batch) {
   });
 }
 
-/**
- * Handle file uploads for batch
- */
 async function handleBatchFiles(event, batchId) {
   const batch = appState.singleBatches.find(b => b.id === batchId);
   if (!batch || !event.target.files.length) return;
@@ -225,12 +308,10 @@ async function handleBatchFiles(event, batchId) {
       batch.files.push(imgObj);
       renderBatchGallery(batch);
       
-      // Convert to base64 for preview
       const b64 = await ImageHandler.fileToBase64(file);
       imgObj.preview = `data:image/jpeg;base64,${b64}`;
       renderBatchGallery(batch);
       
-      // Upload to ImgBB
       imgObj.url = await ImageHandler.uploadToImgbb(b64, file.name);
       imgObj.uploading = false;
       renderBatchGallery(batch);
@@ -249,9 +330,6 @@ async function handleBatchFiles(event, batchId) {
   updateGenerateButton();
 }
 
-/**
- * Render batch gallery
- */
 function renderBatchGallery(batch) {
   const gallery = document.getElementById(`gallery-${batch.id}`);
   if (!gallery) return;
@@ -267,9 +345,6 @@ function renderBatchGallery(batch) {
   `).join('');
 }
 
-/**
- * Update batch note
- */
 window.updateBatchNote = function(batchId, note) {
   const batch = appState.singleBatches.find(b => b.id === batchId);
   if (batch) {
@@ -277,17 +352,11 @@ window.updateBatchNote = function(batchId, note) {
   }
 };
 
-/**
- * Remove single batch
- */
 window.removeSingleBatch = function(batchId) {
   appState.singleBatches = appState.singleBatches.filter(b => b.id !== batchId);
   renderSingleBatches();
 };
 
-/**
- * Remove image from batch
- */
 window.removeBatchImage = function(batchId, index) {
   const batch = appState.singleBatches.find(b => b.id === batchId);
   if (batch) {
@@ -297,9 +366,6 @@ window.removeBatchImage = function(batchId, index) {
   }
 };
 
-/**
- * Add multi-image product group
- */
 function addProductGroup() {
   const groupId = `group-${appState.groupCounter++}`;
   const group = {
@@ -312,9 +378,6 @@ function addProductGroup() {
   renderGroups();
 }
 
-/**
- * Render product groups
- */
 function renderGroups() {
   const container = document.getElementById('groups-container');
   
@@ -359,7 +422,6 @@ function renderGroups() {
     </div>
   `).join('');
   
-  // Setup file handlers
   appState.productGroups.forEach(group => {
     setupGroupFileHandlers(group);
     renderGroupGallery(group);
@@ -368,9 +430,6 @@ function renderGroups() {
   updateGenerateButton();
 }
 
-/**
- * Setup file handlers for group
- */
 function setupGroupFileHandlers(group) {
   const input = document.getElementById(`upload-${group.id}`);
   const dropzone = document.getElementById(`dropzone-${group.id}`);
@@ -397,9 +456,6 @@ function setupGroupFileHandlers(group) {
   });
 }
 
-/**
- * Handle file uploads for group
- */
 async function handleGroupFiles(event, groupId) {
   const group = appState.productGroups.find(g => g.id === groupId);
   if (!group || !event.target.files.length) return;
@@ -441,9 +497,6 @@ async function handleGroupFiles(event, groupId) {
   updateGenerateButton();
 }
 
-/**
- * Render group gallery
- */
 function renderGroupGallery(group) {
   const gallery = document.getElementById(`gallery-${group.id}`);
   if (!gallery) return;
@@ -460,9 +513,6 @@ function renderGroupGallery(group) {
   `).join('');
 }
 
-/**
- * Update group note
- */
 window.updateGroupNote = function(groupId, note) {
   const group = appState.productGroups.find(g => g.id === groupId);
   if (group) {
@@ -470,17 +520,11 @@ window.updateGroupNote = function(groupId, note) {
   }
 };
 
-/**
- * Remove group
- */
 window.removeGroup = function(groupId) {
   appState.productGroups = appState.productGroups.filter(g => g.id !== groupId);
   renderGroups();
 };
 
-/**
- * Remove image from group
- */
 window.removeGroupImage = function(groupId, index) {
   const group = appState.productGroups.find(g => g.id === groupId);
   if (group) {
@@ -490,31 +534,23 @@ window.removeGroupImage = function(groupId, index) {
   }
 };
 
-/**
- * Update generate button state
- */
 function updateGenerateButton() {
   const hasImages = appState.singleBatches.some(b => b.files.length > 0) || 
                     appState.productGroups.some(g => g.files.length > 0);
-  document.getElementById('generateBtn').disabled = !hasImages;
+  const btn = document.getElementById('generateBtn');
+  if (btn) btn.disabled = !hasImages;
 }
 
-/**
- * Start product generation
- */
 async function startGeneration() {
   if (appState.isGenerating) return;
   
   appState.isGenerating = true;
   AIProcessor.abortController = new AbortController();
   
-  // Clear previous products
   ProductManager.clearAll();
   
-  // Build task list
   const tasks = [];
   
-  // Single batches - each image = 1 product
   appState.singleBatches.forEach(batch => {
     batch.files.forEach(imgObj => {
       if (imgObj.url) {
@@ -527,7 +563,6 @@ async function startGeneration() {
     });
   });
   
-  // Multi-image groups
   appState.productGroups.forEach(group => {
     const validFiles = group.files.filter(imgObj => imgObj.url);
     if (validFiles.length > 0) {
@@ -545,10 +580,8 @@ async function startGeneration() {
     return;
   }
   
-  // Switch to products tab
   switchTab('products');
   
-  // Show loading
   document.getElementById('loading').classList.remove('hidden');
   document.getElementById('progressBarContainer').classList.remove('hidden');
   
@@ -562,9 +595,6 @@ async function startGeneration() {
   runBatchGeneration();
 }
 
-/**
- * Run batch generation
- */
 function runBatchGeneration() {
   const { tasks, current } = batchState;
   if (!batchState.running) return;
@@ -575,7 +605,6 @@ function runBatchGeneration() {
     batchState.current = end;
     
     if (end < tasks.length) {
-      // Pause for rate limiting
       document.getElementById('batchPause').classList.remove('hidden');
       let countdown = CONFIG.BATCH_PAUSE_SECONDS;
       document.getElementById('pauseCountdown').textContent = countdown;
@@ -593,15 +622,11 @@ function runBatchGeneration() {
         if (countdown <= 0) clearInterval(interval);
       }, 1000);
     } else {
-      // Complete
       finishGeneration();
     }
   });
 }
 
-/**
- * Process batch tasks
- */
 function processBatchTasks(tasks, start, end, onDone) {
   let i = start;
   
@@ -626,17 +651,10 @@ function processBatchTasks(tasks, start, end, onDone) {
     
     try {
       const { product, base64s } = await AIProcessor.generateProduct(task.files, task.note);
-      
-      // Get translations
       const translations = await AIProcessor.translateProduct(product, 'fr');
-      
-      // Get Arabic category
       const category_ar = await AIProcessor.getArabicCategory(product.categories, base64s, task.note);
-      
-      // Auto-select categories
       const selectedCategories = CategoryManager.autoSelectCategories(product.categories, category_ar);
       
-      // Build final product
       const finalProduct = {
         ...product,
         translations,
@@ -655,7 +673,6 @@ function processBatchTasks(tasks, start, end, onDone) {
       
     } catch (error) {
       if (String(error).includes('rate limit') || String(error).includes('429')) {
-        // Rate limit hit, pause and retry
         document.getElementById('batchPause').classList.remove('hidden');
         batchState.running = false;
         
@@ -675,9 +692,6 @@ function processBatchTasks(tasks, start, end, onDone) {
   processNext();
 }
 
-/**
- * Finish generation
- */
 function finishGeneration() {
   document.getElementById('loading').classList.add('hidden');
   appState.isGenerating = false;
@@ -685,9 +699,6 @@ function finishGeneration() {
   Utils.notify(`✅ Generated ${ProductManager.products.length} products!`, 'success', 5000);
 }
 
-/**
- * Stop generation
- */
 function stopGeneration() {
   batchState.running = false;
   if (batchState.autoResumeTimer) {
@@ -697,27 +708,18 @@ function stopGeneration() {
   document.getElementById('loadingMessage').textContent = 'Stopping...';
 }
 
-/**
- * Upload products to WooCommerce
- */
 function uploadProducts() {
   const lang = document.getElementById('exportLang').value;
   Exporters.uploadToWooCommerce(ProductManager.products, lang);
 }
 
-/**
- * Export to CSV
- */
 function exportCsv() {
   Exporters.exportToCSV(ProductManager.products);
 }
 
-/**
- * Save session
- */
 function saveSession() {
   const session = {
-    version: '1.0',
+    version: '2.1.2',
     timestamp: new Date().toISOString(),
     user: CONFIG.USER_LOGIN,
     singleBatches: appState.singleBatches.map(b => ({
@@ -737,9 +739,6 @@ function saveSession() {
   Utils.notify('✓ Session saved!', 'success');
 }
 
-/**
- * Load session
- */
 function loadSession(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -749,13 +748,11 @@ function loadSession(event) {
     try {
       const session = JSON.parse(e.target.result);
       
-      // Restore state
       appState.singleBatches = session.singleBatches || [];
       appState.productGroups = session.productGroups || [];
       ProductManager.products = session.products || [];
       CategoryManager.categories = session.categories || CategoryManager.categories;
       
-      // Re-render
       renderSingleBatches();
       renderGroups();
       ProductManager.updateUI();
@@ -768,89 +765,21 @@ function loadSession(event) {
   };
   reader.readAsText(file);
   
-  // Reset file input
   event.target.value = '';
 }
 
-/**
- * Hide error banner
- */
 function hideError() {
   document.getElementById('error').classList.add('hidden');
 }
 
-/**
- * Close modal
- */
 function closeModal() {
   document.getElementById('modalBg').classList.add('hidden');
   document.getElementById('modalContainer').classList.add('hidden');
 }
 
-// Make functions globally available
-window.switchTab = switchTab;
 window.hideError = hideError;
 window.closeModal = closeModal;
 
-console.log('✅ Main application loaded');
+console.log('✅ Main application loaded (FIXED v2.1.2)');
 console.log('👤 User:', CONFIG.USER_LOGIN);
 console.log('🎉 Ready to generate products!');
-
-// Initialize new features
-document.addEventListener('DOMContentLoaded', () => {
-  // Display version
-  VersionManager.displayVersion();
-  
-  // Fetch products button
-  const fetchBtn = document.getElementById('fetchProductsBtn');
-  if (fetchBtn) {
-    fetchBtn.addEventListener('click', () => {
-      FetchProducts.showFetchModal();
-    });
-  }
-});
-
-console.log('✅ New features initialized:', VersionManager.getFullVersionString());
-
-// FIXED: Proper initialization without setTimeout conflicts
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('🔧 Initializing fixed version v2.1.1...');
-  
-  // Initialize version display
-  if (window.VersionManager) {
-    VersionManager.version = '2.1.1';
-    VersionManager.lastUpdated = '2025-10-16 18:36:07 UTC';
-    VersionManager.displayVersion();
-    console.log('✅ Version:', VersionManager.getFullVersionString());
-  }
-  
-  // Initialize fetch button
-  const fetchBtn = document.getElementById('fetchProductsBtn');
-  if (fetchBtn && window.FetchProducts) {
-    fetchBtn.removeEventListener('click', () => {}); // Remove old listeners
-    fetchBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      FetchProducts.showFetchModal();
-    });
-    console.log('✅ Fetch button initialized');
-  }
-  
-  // Initialize fetched manager UI
-  if (window.FetchedManager) {
-    FetchedManager.updateUI();
-    console.log('✅ FetchedManager initialized');
-  }
-  
-  // Ensure all tabs work
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-      const tab = this.getAttribute('data-tab');
-      if (tab) switchTab(tab);
-    });
-  });
-  
-  console.log('🎉 All features initialized successfully!');
-});
-
-console.log('✅ Fixed main.js loaded v2.1.1');

@@ -1,5 +1,5 @@
 /**
- * Fetch Products from WooCommerce
+ * Fetch Products from WooCommerce - FIXED VERSION
  */
 
 const FetchProducts = {
@@ -7,45 +7,49 @@ const FetchProducts = {
     try {
       Utils.notify('Fetching products from WooCommerce...', 'info');
       
+      // Build query parameters
       const params = new URLSearchParams({
-        per_page: filters.limit || 100,
-        page: filters.page || 1,
-        consumer_key: CONFIG.WOO_CONSUMER_KEY,
-        consumer_secret: CONFIG.WOO_CONSUMER_SECRET
+        per_page: filters.limit || 20,
+        page: filters.page || 1
       });
       
       if (filters.search) params.append('search', filters.search);
       if (filters.sku) params.append('sku', filters.sku);
       
-      const url = `${CONFIG.WOO_URL}/wp-json/wc/v3/products?${params}`;
-      const response = await this.proxiedFetch(url);
+      // Direct API call with auth in URL
+      const url = `${CONFIG.WOO_URL}/wp-json/wc/v3/products?${params}&consumer_key=${CONFIG.WOO_CONSUMER_KEY}&consumer_secret=${CONFIG.WOO_CONSUMER_SECRET}`;
+      
+      console.log('Fetching from:', CONFIG.WOO_URL);
+      console.log('Search params:', filters);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('WooCommerce API Error:', errorText);
+        throw new Error(`API Error: ${response.status} - ${errorText}`);
+      }
+      
       const products = await response.json();
       
       if (!Array.isArray(products)) {
         throw new Error('Invalid response from WooCommerce');
       }
       
+      console.log('Fetched products:', products.length);
       Utils.notify(`✓ Fetched ${products.length} products`, 'success');
       return products;
       
     } catch (error) {
-      Utils.notify('Failed to fetch products: ' + error.message, 'error');
+      console.error('Fetch error:', error);
+      Utils.notify('Failed to fetch: ' + error.message, 'error', 5000);
       return [];
     }
-  },
-  
-  async proxiedFetch(url) {
-    for (const proxy of CONFIG.PROXIES) {
-      const finalUrl = proxy ? (proxy.endsWith('?') ? proxy + encodeURIComponent(url) : proxy + url) : url;
-      
-      try {
-        const response = await fetch(finalUrl);
-        if (response.ok) return response;
-      } catch (e) {
-        console.error('Proxy failed:', proxy, e);
-      }
-    }
-    throw new Error('All proxies failed');
   },
   
   convertToLocalFormat(wooProduct) {
@@ -54,8 +58,8 @@ const FetchProducts = {
       title: wooProduct.name,
       description: wooProduct.description,
       short_description: wooProduct.short_description,
-      price: wooProduct.price || '0',
-      sku: wooProduct.sku,
+      price: wooProduct.price || wooProduct.regular_price || '0',
+      sku: wooProduct.sku || 'N/A',
       tags: wooProduct.tags?.map(t => t.name) || [],
       categories: wooProduct.categories?.map(c => c.name) || [],
       selectedCategories: wooProduct.categories?.map(c => c.id) || [],
@@ -86,8 +90,14 @@ const FetchProducts = {
         
         <div class="space-y-4">
           <div>
-            <label class="block font-semibold mb-2">Search Products</label>
-            <input type="text" id="fetch-search" placeholder="Search by name, SKU, or keyword..."
+            <label class="block font-semibold mb-2">Search by Name</label>
+            <input type="text" id="fetch-search" placeholder="e.g., T-shirt, Phone..."
+                   class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+          </div>
+          
+          <div>
+            <label class="block font-semibold mb-2">Or Search by SKU</label>
+            <input type="text" id="fetch-sku" placeholder="Enter exact SKU"
                    class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
           </div>
           
@@ -111,7 +121,9 @@ const FetchProducts = {
           <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
             <p class="text-sm text-blue-800">
               <i class="fas fa-info-circle"></i>
-              <strong>Note:</strong> Fetched products will be added to your workspace. You can edit them and re-upload to update your store.
+              <strong>Store:</strong> ${CONFIG.WOO_URL}
+              <br>
+              <strong>Tip:</strong> Leave search empty to fetch all products
             </p>
           </div>
         </div>
@@ -132,16 +144,21 @@ const FetchProducts = {
   },
   
   async executeFetch() {
-    const search = document.getElementById('fetch-search')?.value || '';
+    const search = document.getElementById('fetch-search')?.value.trim() || '';
+    const sku = document.getElementById('fetch-sku')?.value.trim() || '';
     const limit = parseInt(document.getElementById('fetch-limit')?.value || '20');
     const page = parseInt(document.getElementById('fetch-page')?.value || '1');
     
     closeModal();
     
-    const products = await this.fetchFromStore({ search, limit, page });
+    const filters = { limit, page };
+    if (search) filters.search = search;
+    if (sku) filters.sku = sku;
+    
+    const products = await this.fetchFromStore(filters);
     
     if (products.length === 0) {
-      Utils.notify('No products found', 'warning');
+      Utils.notify('No products found. Try different search terms.', 'warning', 5000);
       return;
     }
     
@@ -150,11 +167,11 @@ const FetchProducts = {
       FetchedManager.addProduct(localProduct);
     });
     
-    switchTab("fetched");
-    Utils.notify(`✓ Added ${products.length} products from store!`, 'success');
+    switchTab('fetched');
+    Utils.notify(`✓ Added ${products.length} products to Fetched Products tab!`, 'success', 5000);
   }
 };
 
 window.FetchProducts = FetchProducts;
 
-console.log('✅ FetchProducts loaded');
+console.log('✅ FetchProducts loaded (FIXED)');

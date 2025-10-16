@@ -816,3 +816,91 @@ body { font-family: 'Inter', sans-serif; background: #f5f7fa; }
   font-size: 0.95rem;
   color: #374151;
 }
+
+/* Fix tab buttons to be actually clickable */
+.tab-btn {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  user-select: none;
+  position: relative;
+  z-index: 10;
+}
+
+.tab-btn:hover {
+  background: rgba(99, 102, 241, 0.1) !important;
+  transform: translateY(-2px);
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+  color: white !important;
+  border-bottom: 4px solid #4f46e5 !important;
+}
+
+/* Remove big ugly button at bottom */
+.back-to-top-btn {
+  display: none !important;
+}
+
+/* Better product count badge in tab */
+.tab-btn .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  background: #ef4444;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.tab-btn.active .badge {
+  background: white;
+  color: #6366f1;
+}
+
+/* Fix modal backdrop z-index */
+.modal-bg {
+  z-index: 9998 !important;
+}
+
+.modal-container {
+  z-index: 9999 !important;
+}
+
+/* Better empty state */
+#emptyState, #fetched-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+/* Fix button sizes */
+.btn {
+  white-space: nowrap;
+  font-size: 0.95rem;
+  padding: 10px 20px;
+}
+
+.btn-sm {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+}
+
+/* Fix dropzone */
+.dropzone-area {
+  min-height: 120px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.dropzone-area:hover {
+  border-color: #6366f1;
+  background: #f0f1ff;
+}
