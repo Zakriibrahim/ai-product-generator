@@ -1,82 +1,57 @@
 /**
- * Fetch Products from WooCommerce - FIXED VERSION
+ * Fetch Products from WooCommerce - with CORS fallback
  */
-
 const FetchProducts = {
   async fetchFromStore(filters = {}) {
-    try {
-      Utils.notify('Fetching products from WooCommerce...', 'info');
-      
-      // Build query parameters
-      const params = new URLSearchParams({
-        per_page: filters.limit || 20,
-        page: filters.page || 1
-      });
-      
-      if (filters.search) params.append('search', filters.search);
-      if (filters.sku) params.append('sku', filters.sku);
-      
-      // Direct API call with auth in URL
-      const url = `${CONFIG.WOO_URL}/wp-json/wc/v3/products?${params}&consumer_key=${CONFIG.WOO_CONSUMER_KEY}&consumer_secret=${CONFIG.WOO_CONSUMER_SECRET}`;
-      
-      console.log('Fetching from:', CONFIG.WOO_URL);
-      console.log('Search params:', filters);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('WooCommerce API Error:', errorText);
-        throw new Error(`API Error: ${response.status} - ${errorText}`);
-      }
-      
-      const products = await response.json();
-      
-      if (!Array.isArray(products)) {
-        throw new Error('Invalid response from WooCommerce');
-      }
-      
-      console.log('Fetched products:', products.length);
-      Utils.notify(`✓ Fetched ${products.length} products`, 'success');
-      return products;
-      
-    } catch (error) {
-      console.error('Fetch error:', error);
-      Utils.notify('Failed to fetch: ' + error.message, 'error', 5000);
-      return [];
+    Utils.notify("Fetching products from WooCommerce...", "info");
+    const baseParams = new URLSearchParams({
+      per_page: filters.limit || 20,
+      page: filters.page || 1,
+    });
+    if (filters.search) baseParams.append("search", filters.search);
+    if (filters.sku) baseParams.append("sku", filters.sku);
+    const baseUrl = `${CONFIG.WOO_URL}/wp-json/wc/v3/products?${baseParams}&consumer_key=${CONFIG.WOO_CONSUMER_KEY}&consumer_secret=${CONFIG.WOO_CONSUMER_SECRET}`;
+    const candidates = [
+      baseUrl,
+      `https://cors.isomorphic-git.org/${baseUrl}`,
+      `https://corsproxy.io/?${encodeURIComponent(baseUrl)}`,
+    ];
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, { headers: { Accept: "application/json" }, method: "GET" });
+        if (!res.ok) { try { console.warn("[Woo Fetch]", res.status, await res.text()); } catch {} continue; }
+        const data = await res.json();
+        if (Array.isArray(data)) { Utils.notify(`✓ Fetched ${data.length} products`, "success"); return data; }
+      } catch (err) { console.warn("[Woo Fetch] Error", err); }
     }
+    Utils.notify("Failed to fetch products (CORS or API error). Try a different keyword/SKU.", "error", 5000);
+    return [];
   },
-  
+
   convertToLocalFormat(wooProduct) {
     return {
       id: wooProduct.id,
       title: wooProduct.name,
       description: wooProduct.description,
       short_description: wooProduct.short_description,
-      price: wooProduct.price || wooProduct.regular_price || '0',
-      sku: wooProduct.sku || 'N/A',
-      tags: wooProduct.tags?.map(t => t.name) || [],
-      categories: wooProduct.categories?.map(c => c.name) || [],
-      selectedCategories: wooProduct.categories?.map(c => c.id) || [],
-      galleryImageUrls: wooProduct.images?.map(img => img.src) || [],
+      price: wooProduct.price || wooProduct.regular_price || "0",
+      sku: wooProduct.sku || "N/A",
+      tags: wooProduct.tags?.map((t) => t.name) || [],
+      categories: wooProduct.categories?.map((c) => c.name) || [],
+      selectedCategories: wooProduct.categories?.map((c) => c.id) || [],
+      galleryImageUrls: wooProduct.images?.map((img) => img.src) || [],
       variations: [],
       attributes: wooProduct.attributes || [],
       default_attributes: wooProduct.default_attributes || [],
-      mode: 'fetched',
+      mode: "fetched",
       woocommerceId: wooProduct.id,
-      permalink: wooProduct.permalink
+      permalink: wooProduct.permalink,
     };
   },
-  
+
   showFetchModal() {
-    const modal = document.getElementById('modalContainer');
-    const modalBg = document.getElementById('modalBg');
-    
+    const modal = document.getElementById("modalContainer");
+    const modalBg = document.getElementById("modalBg");
     modal.innerHTML = `
       <div class="modal-card">
         <div class="flex justify-between items-center mb-6">
@@ -87,20 +62,17 @@ const FetchProducts = {
             <i class="fas fa-times"></i>
           </button>
         </div>
-        
         <div class="space-y-4">
           <div>
             <label class="block font-semibold mb-2">Search by Name</label>
             <input type="text" id="fetch-search" placeholder="e.g., T-shirt, Phone..."
                    class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
           </div>
-          
           <div>
             <label class="block font-semibold mb-2">Or Search by SKU</label>
             <input type="text" id="fetch-sku" placeholder="Enter exact SKU"
                    class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
           </div>
-          
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block font-semibold mb-2">Limit</label>
@@ -117,17 +89,14 @@ const FetchProducts = {
                      class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
             </div>
           </div>
-          
           <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
             <p class="text-sm text-blue-800">
               <i class="fas fa-info-circle"></i>
-              <strong>Store:</strong> ${CONFIG.WOO_URL}
-              <br>
+              <strong>Store:</strong> ${CONFIG.WOO_URL}<br>
               <strong>Tip:</strong> Leave search empty to fetch all products
             </p>
           </div>
         </div>
-        
         <div class="flex gap-3 justify-end mt-6 pt-6 border-t">
           <button onclick="closeModal()" class="btn btn-gray">
             <i class="fas fa-times"></i> Cancel
@@ -138,40 +107,48 @@ const FetchProducts = {
         </div>
       </div>
     `;
-    
-    modal.classList.remove('hidden');
-    modalBg.classList.remove('hidden');
+    modal.classList.remove("hidden");
+    modalBg.classList.remove("hidden");
   },
-  
+
   async executeFetch() {
-    const search = document.getElementById('fetch-search')?.value.trim() || '';
-    const sku = document.getElementById('fetch-sku')?.value.trim() || '';
-    const limit = parseInt(document.getElementById('fetch-limit')?.value || '20');
-    const page = parseInt(document.getElementById('fetch-page')?.value || '1');
-    
+    const search = document.getElementById("fetch-search")?.value.trim() || "";
+    const sku = document.getElementById("fetch-sku")?.value.trim() || "";
+    const limit = parseInt(document.getElementById("fetch-limit")?.value || "20");
+    const page = parseInt(document.getElementById("fetch-page")?.value || "1");
     closeModal();
-    
     const filters = { limit, page };
     if (search) filters.search = search;
     if (sku) filters.sku = sku;
-    
     const products = await this.fetchFromStore(filters);
-    
-    if (products.length === 0) {
-      Utils.notify('No products found. Try different search terms.', 'warning', 5000);
-      return;
-    }
-    
-    products.forEach(wooProduct => {
+    if (products.length === 0) { Utils.notify("No products found. Try a different keyword or SKU.", "warning", 5000); return; }
+    products.forEach((wooProduct) => {
       const localProduct = this.convertToLocalFormat(wooProduct);
       FetchedManager.addProduct(localProduct);
     });
-    
-    switchTab('fetched');
-    Utils.notify(`✓ Added ${products.length} products to Fetched Products tab!`, 'success', 5000);
-  }
+    switchTab("fetched");
+    Utils.notify(`✓ Added ${products.length} products to Fetched Products tab!`, "success", 5000);
+  },
 };
-
 window.FetchProducts = FetchProducts;
+console.log("✅ FetchProducts loaded (CORS fallback)");
 
-console.log('✅ FetchProducts loaded (FIXED)');
+// Make the Fetch button clickable regardless of script order
+(function attachFetchButton() {
+  const bind = () => {
+    const btn = document.getElementById("fetchProductsBtn");
+    if (!btn) return false;
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      FetchProducts.showFetchModal();
+    }, { once: false });
+    return true;
+  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => { bind(); });
+  } else {
+    // DOM is ready; bind now (and retry once if button not yet in DOM)
+    if (!bind()) setTimeout(bind, 100);
+  }
+})();
