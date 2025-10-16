@@ -147,10 +147,10 @@ const FetchProducts = {
     
     products.forEach(wooProduct => {
       const localProduct = this.convertToLocalFormat(wooProduct);
-      ProductManager.addProduct(localProduct);
+      FetchedManager.addProduct(localProduct);
     });
     
-    switchTab('products');
+    switchTab("fetched");
     Utils.notify(`✓ Added ${products.length} products from store!`, 'success');
   }
 };

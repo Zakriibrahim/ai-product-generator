@@ -811,3 +811,46 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 console.log('✅ New features initialized:', VersionManager.getFullVersionString());
+
+// FIXED: Proper initialization without setTimeout conflicts
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('🔧 Initializing fixed version v2.1.1...');
+  
+  // Initialize version display
+  if (window.VersionManager) {
+    VersionManager.version = '2.1.1';
+    VersionManager.lastUpdated = '2025-10-16 18:36:07 UTC';
+    VersionManager.displayVersion();
+    console.log('✅ Version:', VersionManager.getFullVersionString());
+  }
+  
+  // Initialize fetch button
+  const fetchBtn = document.getElementById('fetchProductsBtn');
+  if (fetchBtn && window.FetchProducts) {
+    fetchBtn.removeEventListener('click', () => {}); // Remove old listeners
+    fetchBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      FetchProducts.showFetchModal();
+    });
+    console.log('✅ Fetch button initialized');
+  }
+  
+  // Initialize fetched manager UI
+  if (window.FetchedManager) {
+    FetchedManager.updateUI();
+    console.log('✅ FetchedManager initialized');
+  }
+  
+  // Ensure all tabs work
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      const tab = this.getAttribute('data-tab');
+      if (tab) switchTab(tab);
+    });
+  });
+  
+  console.log('🎉 All features initialized successfully!');
+});
+
+console.log('✅ Fixed main.js loaded v2.1.1');

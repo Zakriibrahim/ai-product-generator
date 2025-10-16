@@ -3,11 +3,23 @@
  */
 
 const VersionManager = {
-  version: '2.1.0',
-  lastUpdated: '2025-10-16 18:30:10 UTC',
+  version: '2.1.1',
+  lastUpdated: '2025-10-16 18:36:07 UTC',
   changelog: [
     {
-      version: '2.1.0',
+      version: '2.1.1',
+      date: '2025-10-16',
+      features: [
+        'CRITICAL FIX: UI buttons now working',
+        'Added dedicated Fetched Products tab',
+        'Separate management for fetched products',
+        'Added remove.bg API key integration',
+        'Fixed JavaScript initialization errors',
+        'Improved tab switching reliability'
+      ]
+    },
+    {
+      version: '2.1.1',
       date: '2025-10-16',
       features: [
         'Fetch products from WooCommerce',

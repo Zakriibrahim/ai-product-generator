@@ -6,7 +6,7 @@
 
 const ImageEnhancer = {
   // Add your remove.bg API key here (get from https://remove.bg/api)
-  REMOVEBG_API_KEY: '',
+  REMOVEBG_API_KEY: 'B15pqWdd74VofJGkiCizML6E',
   
   async removeBackground(imageUrl) {
     if (!this.REMOVEBG_API_KEY) {
@@ -126,3 +126,78 @@ const ImageEnhancer = {
 window.ImageEnhancer = ImageEnhancer;
 
 console.log('✅ ImageEnhancer loaded');
+
+// Add image enhancement support for fetched products
+ImageEnhancer.showEnhanceModalFetched = function(productIndex) {
+  const product = FetchedManager.fetchedProducts[productIndex];
+  if (!product || !product.galleryImageUrls?.length) {
+    Utils.notify('No images to enhance', 'warning');
+    return;
+  }
+  
+  const modal = document.getElementById('modalContainer');
+  const modalBg = document.getElementById('modalBg');
+  
+  const imagesHtml = product.galleryImageUrls.map((url, i) => `
+    <div class="border-2 border-zinc-200 rounded-lg p-3">
+      <img src="${url}" class="w-full h-40 object-cover rounded mb-3" alt="Image ${i}">
+      <div class="flex gap-2">
+        <button onclick="ImageEnhancer.processImageFetched(${productIndex}, ${i}, 'remove-bg')" 
+                class="btn btn-blue btn-sm flex-1">
+          <i class="fas fa-magic"></i> Remove BG
+        </button>
+      </div>
+    </div>
+  `).join('');
+  
+  modal.innerHTML = `
+    <div class="modal-card">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-indigo-700">
+          <i class="fas fa-wand-magic-sparkles"></i> AI Image Enhancement
+        </h2>
+        <button onclick="closeModal()" class="text-3xl text-zinc-400 hover:text-zinc-600">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <div class="mb-6">
+        <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded mb-4">
+          <p class="text-sm text-green-800">
+            <i class="fas fa-check-circle"></i>
+            <strong>API Key Active:</strong> Background removal is ready to use!
+          </p>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-2 gap-4">
+        ${imagesHtml}
+      </div>
+      
+      <div class="flex gap-3 justify-end mt-6 pt-6 border-t">
+        <button onclick="closeModal()" class="btn btn-gray">
+          <i class="fas fa-times"></i> Close
+        </button>
+      </div>
+    </div>
+  `;
+  
+  modal.classList.remove('hidden');
+  modalBg.classList.remove('hidden');
+};
+
+ImageEnhancer.processImageFetched = async function(productIndex, imageIndex, type) {
+  const product = FetchedManager.fetchedProducts[productIndex];
+  if (!product) return;
+  
+  const originalUrl = product.galleryImageUrls[imageIndex];
+  const processedUrl = await this.removeBackground(originalUrl);
+  
+  if (processedUrl !== originalUrl) {
+    product.galleryImageUrls[imageIndex] = processedUrl;
+    FetchedManager.updateProduct(productIndex, product);
+    closeModal();
+  }
+};
+
+console.log('✅ Image enhancement for fetched products added');
