@@ -25,8 +25,8 @@ const CONFIG = {
   // ========================================
   FACEBOOK: {
     // Replace after running the prompts below, or leave as-is and fill in the Social tab UI
-    PAGE_ID: "cd ~/ai-product-generator && cp -r . ../ai-product-generator-BACKUP-$(date +%Y%m%d-%H%M%S) && mkdir -p js && cat > js/socialPoster.js <<'EOF_SOCIAL'",
-    PAGE_ACCESS_TOKEN: "/**"
+    PAGE_ID: "723649720842554",
+    PAGE_ACCESS_TOKEN: "EAApLV1Qy41ABPqkm8EEcXZCQVckn0ZBvZClrdWPtLO5WAvIcpfMnIZB5VhhEWchAOEjwFjaemwqBehZBlaJOeWYHFaxzcxIF6neZC7Hi892720aWMcE31N8Gv5n8y6GU0qyEkARgzo86l1ZAdk2UAGd1FUUoX5rmhTdrdX2wz3cEuhwNo2S9ZAPpOa4PzYkjiVAQSsQTr5KZA2HS5HFObeGv1bXPKIZA03RXmeLQZDZD"
   },
   
   // ========================================
