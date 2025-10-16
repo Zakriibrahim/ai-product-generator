@@ -1,25 +1,31 @@
 /**
  * AI Image Enhancer
- * Remove backgrounds, enhance quality
+ * Note: Requires remove.bg API key for background removal
+ * Get free key at: https://remove.bg/api
  */
 
 const ImageEnhancer = {
+  // Add your remove.bg API key here (get from https://remove.bg/api)
+  REMOVEBG_API_KEY: '',
+  
   async removeBackground(imageUrl) {
+    if (!this.REMOVEBG_API_KEY) {
+      Utils.notify('⚠️ Please add remove.bg API key in js/imageEnhancer.js', 'warning', 4000);
+      return imageUrl;
+    }
+    
     try {
       Utils.notify('Removing background...', 'info');
-      
-      // Using remove.bg API (you'll need API key)
-      const REMOVEBG_API_KEY = 'YOUR_REMOVE_BG_KEY'; // Get from remove.bg
       
       const formData = new FormData();
       formData.append('image_url', imageUrl);
       formData.append('size', 'auto');
-      formData.append('bg_color', 'ffffff'); // White background
+      formData.append('bg_color', 'ffffff');
       
       const response = await fetch('https://api.remove.bg/v1.0/removebg', {
         method: 'POST',
         headers: {
-          'X-Api-Key': REMOVEBG_API_KEY
+          'X-Api-Key': this.REMOVEBG_API_KEY
         },
         body: formData
       });
@@ -35,20 +41,9 @@ const ImageEnhancer = {
       return processedUrl;
       
     } catch (error) {
-      Utils.notify('Background removal not available (needs API key)', 'warning');
+      Utils.notify('Background removal failed: ' + error.message, 'error');
       return imageUrl;
     }
-  },
-  
-  async enhanceImage(imageUrl) {
-    // For now, return original
-    // Can integrate with APIs like:
-    // - DeepAI Image Enhancement
-    // - Cloudinary AI
-    // - Let's Enhance API
-    
-    Utils.notify('Image enhancement coming soon!', 'info');
-    return imageUrl;
   },
   
   showEnhanceModal(productIndex) {
@@ -68,10 +63,6 @@ const ImageEnhancer = {
           <button onclick="ImageEnhancer.processImage(${productIndex}, ${i}, 'remove-bg')" 
                   class="btn btn-blue btn-sm flex-1">
             <i class="fas fa-magic"></i> Remove BG
-          </button>
-          <button onclick="ImageEnhancer.processImage(${productIndex}, ${i}, 'enhance')" 
-                  class="btn btn-indigo btn-sm flex-1">
-            <i class="fas fa-sparkles"></i> Enhance
           </button>
         </div>
       </div>
@@ -93,8 +84,10 @@ const ImageEnhancer = {
             <p class="text-sm text-yellow-800">
               <i class="fas fa-key"></i>
               <strong>API Key Required:</strong> Background removal requires remove.bg API key. 
-              Edit <code>js/imageEnhancer.js</code> to add your key.
-              <a href="https://remove.bg/api" target="_blank" class="underline ml-2">Get API Key</a>
+              <br>
+              Edit <code>js/imageEnhancer.js</code> and set <code>REMOVEBG_API_KEY</code>
+              <br>
+              <a href="https://remove.bg/api" target="_blank" class="underline font-semibold">Get Free API Key →</a>
             </p>
           </div>
         </div>
@@ -120,17 +113,13 @@ const ImageEnhancer = {
     if (!product) return;
     
     const originalUrl = product.galleryImageUrls[imageIndex];
-    let processedUrl;
+    const processedUrl = await this.removeBackground(originalUrl);
     
-    if (type === 'remove-bg') {
-      processedUrl = await this.removeBackground(originalUrl);
-    } else if (type === 'enhance') {
-      processedUrl = await this.enhanceImage(originalUrl);
+    if (processedUrl !== originalUrl) {
+      product.galleryImageUrls[imageIndex] = processedUrl;
+      ProductManager.updateProduct(productIndex, product);
+      closeModal();
     }
-    
-    // Update product image
-    product.galleryImageUrls[imageIndex] = processedUrl;
-    ProductManager.updateProduct(productIndex, product);
   }
 };
 

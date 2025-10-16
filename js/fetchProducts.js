@@ -1,6 +1,5 @@
 /**
  * Fetch Products from WooCommerce
- * Load existing products for editing
  */
 
 const FetchProducts = {
@@ -42,20 +41,20 @@ const FetchProducts = {
       try {
         const response = await fetch(finalUrl);
         if (response.ok) return response;
-      } catch (e) {}
+      } catch (e) {
+        console.error('Proxy failed:', proxy, e);
+      }
     }
     throw new Error('All proxies failed');
   },
   
   convertToLocalFormat(wooProduct) {
-    const isVariable = wooProduct.type === 'variable';
-    
     return {
       id: wooProduct.id,
       title: wooProduct.name,
       description: wooProduct.description,
       short_description: wooProduct.short_description,
-      price: wooProduct.price || (wooProduct.variations?.length ? '0' : '0'),
+      price: wooProduct.price || '0',
       sku: wooProduct.sku,
       tags: wooProduct.tags?.map(t => t.name) || [],
       categories: wooProduct.categories?.map(c => c.name) || [],
@@ -133,9 +132,9 @@ const FetchProducts = {
   },
   
   async executeFetch() {
-    const search = document.getElementById('fetch-search').value;
-    const limit = parseInt(document.getElementById('fetch-limit').value);
-    const page = parseInt(document.getElementById('fetch-page').value);
+    const search = document.getElementById('fetch-search')?.value || '';
+    const limit = parseInt(document.getElementById('fetch-limit')?.value || '20');
+    const page = parseInt(document.getElementById('fetch-page')?.value || '1');
     
     closeModal();
     

@@ -1,6 +1,5 @@
 /**
- * Regenerate Products
- * Re-analyze products with AI
+ * Regenerate Products with AI
  */
 
 const RegenerateProducts = {
@@ -15,7 +14,6 @@ const RegenerateProducts = {
     try {
       Utils.notify('Regenerating product with AI...', 'info');
       
-      // Get base64 from existing images
       const base64s = [];
       for (const url of product.galleryImageUrls || []) {
         try {
@@ -30,25 +28,16 @@ const RegenerateProducts = {
         throw new Error('No images available to analyze');
       }
       
-      // Build image objects
       const images = base64s.map((b64, i) => ({
         url: product.galleryImageUrls[i],
         file: null
       }));
       
-      // Generate new data
       const { product: newData } = await AIProcessor.generateProduct(images, product.note || '');
-      
-      // Get translations
       const translations = await AIProcessor.translateProduct(newData, 'fr');
-      
-      // Get Arabic category
       const category_ar = await AIProcessor.getArabicCategory(newData.categories, base64s, product.note || '');
-      
-      // Auto-select categories
       const selectedCategories = CategoryManager.autoSelectCategories(newData.categories, category_ar);
       
-      // Update product (keep existing images and ID)
       const updatedProduct = {
         ...product,
         title: newData.title,
@@ -69,6 +58,7 @@ const RegenerateProducts = {
       
     } catch (error) {
       Utils.notify('Regeneration failed: ' + error.message, 'error');
+      console.error('Regeneration error:', error);
     }
   }
 };
