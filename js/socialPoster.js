@@ -1,53 +1,40 @@
 /**
  * Social Poster - Facebook posting + Social tab
- * - Injects a "Post to Facebook" button next to Upload to WooCommerce
- * - One-click: post selected products, or all if none selected
- * - Photo post (with caption) when an image exists; text-only fallback
- * - Uses CONFIG.FACEBOOK.PAGE_ID and PAGE_ACCESS_TOKEN
- * - Clean confirm modal and progress notifications
+ * - Header "Post to Facebook" button next to Upload to WooCommerce
+ * - Posts selected products, or all if none selected
+ * - Photo post with caption (uses first image), text-only fallback
+ * - Uses CONFIG.FACEBOOK, but can override with values saved in localStorage (kept on your machine)
+ * - Auto-resolves Page token from a User token via /me/accounts
+ * - Friendly handling of expired tokens (code 190/subcode 463)
  */
 const SocialPoster = {
   GRAPH_VERSION: 'v19.0',
+  LS_PAGE_ID: 'fbPageId',
+  LS_PAGE_TOKEN: 'fbPageToken',
 
   init() {
-    // Inject tab (inside main card) and header button
     this.injectTab();
     this.injectHeaderButton();
-    // Bind any static UI handlers (tab area)
     this.bindUI();
-    // Prefill page/token into tab inputs, if present
     this.prefillFromConfig();
   },
 
-  // --------------------------
-  // Header button
-  // --------------------------
+  // Header button (next to Fetch)
   injectHeaderButton() {
-    // Find the existing header actions by locating the Fetch button
     const fetchBtn = document.getElementById('fetchProductsBtn');
     if (!fetchBtn) return;
-
-    // Avoid duplicates
     if (document.getElementById('postToFacebookBtn')) return;
 
-    // Create the new button
     const btn = document.createElement('button');
     btn.id = 'postToFacebookBtn';
     btn.className = 'btn btn-blue';
     btn.innerHTML = '<i class="fab fa-facebook"></i> Post to Facebook';
-
-    // Insert right after Fetch from Store
     fetchBtn.insertAdjacentElement('afterend', btn);
-
-    // Bind click
     btn.addEventListener('click', () => this.openConfirmModal());
   },
 
-  // --------------------------
-  // Tab injection (layout fix)
-  // --------------------------
+  // Tab injection (inside main card for clean layout)
   injectTab() {
-    // 1) Add a new tab button if missing
     const tabContainer = document.querySelector('.tab-container');
     if (tabContainer && !document.querySelector('.tab-btn[data-tab="social"]')) {
       const btn = document.createElement('button');
@@ -55,15 +42,13 @@ const SocialPoster = {
       btn.setAttribute('data-tab', 'social');
       btn.innerHTML = '<i class="fas fa-share-alt"></i> Social Posts';
       btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault(); e.stopPropagation();
         if (window.TabManager) TabManager.switchTab('social');
         else if (window.switchTab) switchTab('social');
       });
       tabContainer.appendChild(btn);
     }
 
-    // 2) Add the tab content if missing (append inside main card for clean layout)
     if (!document.getElementById('tab-social')) {
       const socialTab = document.createElement('div');
       socialTab.id = 'tab-social';
@@ -75,7 +60,7 @@ const SocialPoster = {
               <i class="fas fa-share-alt"></i> Social Posts
             </h2>
             <div class="text-sm text-zinc-500">
-              Compose a caption or post directly using your configured Page.
+              One-click post via the header button. Manage your Page ID/Token here if needed.
             </div>
           </div>
 
@@ -95,7 +80,7 @@ const SocialPoster = {
                 <label class="block font-semibold mb-2">Image URL (optional)</label>
                 <input id="socialImageUrl" type="text" placeholder="https://..."
                       class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                <p class="text-xs text-zinc-500 mt-1">Tip: The Post button will auto-use the first image of each product.</p>
+                <p class="text-xs text-zinc-500 mt-1">Tip: Posting will automatically use the first image of each product.</p>
               </div>
 
               <div class="flex gap-2 flex-wrap">
@@ -117,15 +102,23 @@ const SocialPoster = {
                       class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
               </div>
 
-              <div class="mb-3">
-                <label class="block font-semibold mb-2">Page Access Token</label>
-                <input id="fbPageToken" type="password" placeholder="EAAG...."
+              <div class="mb-2">
+                <label class="block font-semibold mb-2">Page Access Token or User Token</label>
+                <input id="fbPageToken" type="password" placeholder="EAAG..."
                       class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                <p class="text-xs text-zinc-500 mt-1">Kept client-side; use with caution. Prefer server or cURL for production.</p>
+              </div>
+              <div class="flex gap-2 mb-3">
+                <button id="saveFbCredsBtn" class="btn btn-indigo btn-sm">
+                  <i class="fas fa-save"></i> Save Token Locally
+                </button>
+                <button id="clearFbCredsBtn" class="btn btn-pink btn-sm">
+                  <i class="fas fa-eraser"></i> Clear Saved Token
+                </button>
               </div>
 
-              <div class="bg-zinc-50 border rounded p-3 text-sm text-zinc-600 mb-3">
-                <p><strong>One‑click Post:</strong> Use the header "Post to Facebook" button. It posts selected products (or all if none selected).</p>
+              <div class="bg-zinc-50 border rounded p-3 text-sm text-zinc-600">
+                <p><strong>Tip:</strong> You can paste a User token here; we’ll auto-resolve your Page token using /me/accounts for your Page ID.</p>
+                <p class="mt-1">If your token expires, you’ll be prompted to paste a fresh one.</p>
               </div>
             </div>
           </div>
@@ -137,49 +130,60 @@ const SocialPoster = {
   },
 
   bindUI() {
-    // Compose helpers in the Social tab
     const captionEl = document.getElementById('socialCaption');
     const counterEl = document.getElementById('socialCharCount');
     if (captionEl) {
       const update = () => { counterEl && (counterEl.textContent = `${captionEl.value.length} / 2200`); };
-      captionEl.addEventListener('input', update);
-      update();
+      captionEl.addEventListener('input', update); update();
     }
 
-    const useSelBtn = document.getElementById('socialUseSelectedBtn');
-    if (useSelBtn) useSelBtn.addEventListener('click', () => this.fillFromSelected());
+    document.getElementById('socialUseSelectedBtn')?.addEventListener('click', () => this.fillFromSelected());
 
-    const copyCapBtn = document.getElementById('socialCopyCaptionBtn');
-    if (copyCapBtn) copyCapBtn.addEventListener('click', () => {
+    document.getElementById('socialCopyCaptionBtn')?.addEventListener('click', () => {
       const text = (document.getElementById('socialCaption')?.value || '').trim();
       if (!text) return Utils.notify('Nothing to copy', 'warning');
       navigator.clipboard.writeText(text).then(() => Utils.notify('Caption copied', 'success'));
+    });
+
+    document.getElementById('saveFbCredsBtn')?.addEventListener('click', () => {
+      const id = (document.getElementById('fbPageId')?.value || '').trim();
+      const tok = (document.getElementById('fbPageToken')?.value || '').trim();
+      if (!id || !tok) return Utils.notify('Enter Page ID and a token first', 'warning');
+      try {
+        localStorage.setItem(this.LS_PAGE_ID, id);
+        localStorage.setItem(this.LS_PAGE_TOKEN, tok);
+        Utils.notify('Saved locally', 'success');
+      } catch { Utils.notify('Could not save locally', 'error'); }
+    });
+
+    document.getElementById('clearFbCredsBtn')?.addEventListener('click', () => {
+      try {
+        localStorage.removeItem(this.LS_PAGE_ID);
+        localStorage.removeItem(this.LS_PAGE_TOKEN);
+        Utils.notify('Cleared local token', 'success');
+      } catch {}
     });
   },
 
   prefillFromConfig() {
     const cfg = (window.CONFIG && window.CONFIG.FACEBOOK) ? window.CONFIG.FACEBOOK : {};
+    const idFromLS = localStorage.getItem(this.LS_PAGE_ID);
+    const tokFromLS = localStorage.getItem(this.LS_PAGE_TOKEN);
+
     const idEl = document.getElementById('fbPageId');
     const tokEl = document.getElementById('fbPageToken');
-    if (idEl && cfg.PAGE_ID) idEl.value = cfg.PAGE_ID;
-    if (tokEl && cfg.PAGE_ACCESS_TOKEN) tokEl.value = cfg.PAGE_ACCESS_TOKEN;
+
+    const pageId = idFromLS || cfg.PAGE_ID || '';
+    const token = tokFromLS || cfg.PAGE_ACCESS_TOKEN || '';
+
+    if (idEl && pageId) idEl.value = pageId;
+    if (tokEl && token) tokEl.value = token;
   },
 
-  // --------------------------
-  // Confirm + Batch post
-  // --------------------------
+  // Confirm and batch post
   openConfirmModal() {
     const products = this._getTargets();
-    if (products.length === 0) {
-      Utils.notify('No products to post. Generate or fetch first.', 'warning');
-      return;
-    }
-    const { pageId, token } = this._getPageCreds();
-    if (!pageId || !token) {
-      Utils.notify('Missing Facebook Page ID or Access Token. Fill them in Social Posts tab or CONFIG.', 'error', 5000);
-      if (window.switchTab) switchTab('social');
-      return;
-    }
+    if (products.length === 0) return Utils.notify('No products to post. Generate or fetch first.', 'warning');
 
     const modal = document.getElementById('modalContainer');
     const modalBg = document.getElementById('modalBg');
@@ -192,12 +196,11 @@ const SocialPoster = {
         <div class="space-y-4">
           <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
             <p class="text-sm text-blue-800">
-              Target Page: <strong>${this._escape(pageId)}</strong><br>
-              Products: <strong>${products.length}</strong><br>
+              Products to post: <strong>${products.length}</strong><br>
               Mode: <strong>${ProductManager.selectedIndices?.length ? 'Selected only' : 'All products'}</strong>
             </p>
           </div>
-          <p class="text-sm text-zinc-600">This will post each product one-by-one. If a product has an image, we post it as a photo with caption; otherwise as a text post.</p>
+          <p class="text-sm text-zinc-600">We will use your Page ID and Token from the Social tab (or CONFIG). If you pasted a User token, we’ll attempt to auto-resolve the Page token.</p>
         </div>
         <div class="flex gap-3 justify-end mt-6 pt-6 border-t">
           <button onclick="closeModal()" class="btn btn-gray"><i class="fas fa-times"></i> Cancel</button>
@@ -215,50 +218,99 @@ const SocialPoster = {
   },
 
   async postBatch(products) {
-    const { pageId, token } = this._getPageCreds();
     const btn = document.getElementById('postToFacebookBtn');
     const original = btn ? btn.innerHTML : '';
     if (btn) btn.disabled = true;
 
-    let ok = 0, fail = 0;
-    for (let i = 0; i < products.length; i++) {
-      const p = products[i];
-      if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Posting ${i + 1}/${products.length}...`;
-      try {
-        const caption = this.buildCaption(p);
-        const imageUrl = (p.galleryImageUrls || [])[0] || '';
-        if (imageUrl) {
-          await this.postPhoto(pageId, token, imageUrl, caption);
-        } else {
-          await this.postText(pageId, token, caption);
-        }
-        ok++;
-        Utils.notify(`✓ Posted: ${p.title}`, 'success', 2000);
-      } catch (e) {
-        fail++;
-        Utils.notify(`✗ Failed: ${p.title} — ${e.message}`, 'error', 4000);
-        console.error('Facebook post error:', e);
-      }
-      // Small delay to avoid rate limits
-      await this._sleep(600);
-    }
+    try {
+      // Resolve a good token before starting (handles user token -> page token, and basic validity check)
+      const { pageId, token } = await this.validateAndResolveToken();
 
-    if (btn) { btn.innerHTML = original; btn.disabled = false; }
-    if (fail === 0) {
-      Utils.notify(`🎉 Posted ${ok}/${products.length} products successfully!`, 'success', 5000);
-    } else {
-      Utils.notify(`⚠ Posted ${ok}, Failed ${fail}. See console for details.`, 'warning', 6000);
+      let ok = 0, fail = 0;
+      for (let i = 0; i < products.length; i++) {
+        const p = products[i];
+        if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Posting ${i + 1}/${products.length}...`;
+
+        try {
+          const caption = this.buildCaption(p);
+          const imageUrl = (p.galleryImageUrls || [])[0] || '';
+          if (imageUrl) {
+            await this.postPhoto(pageId, token, imageUrl, caption);
+          } else {
+            await this.postText(pageId, token, caption);
+          }
+          ok++;
+          Utils.notify(`✓ Posted: ${p.title}`, 'success', 2000);
+        } catch (e) {
+          fail++;
+          const friendly = this._friendlyError(e);
+          Utils.notify(`✗ Failed: ${p.title} — ${friendly}`, 'error', 6000);
+          console.error('Facebook post error:', e);
+          // If token expired mid-run, stop and prompt refresh
+          if (this._isExpiredError(e)) {
+            Utils.notify('Your token expired. Paste a fresh token in Social tab.', 'warning', 6000);
+            break;
+          }
+        }
+        await this._sleep(650);
+      }
+
+      if (fail === 0) {
+        Utils.notify(`🎉 Posted ${ok}/${products.length} products successfully!`, 'success', 5000);
+      } else {
+        Utils.notify(`⚠ Posted ${ok}, Failed ${fail}. See console for details.`, 'warning', 6000);
+      }
+    } finally {
+      if (btn) { btn.innerHTML = original; btn.disabled = false; }
     }
   },
 
   buildCaption(product) {
     const baseCaption = (document.getElementById('socialCaption')?.value || '').trim();
     if (baseCaption) return baseCaption;
-
     const priceText = product.price ? `${parseFloat(product.price).toFixed(2)} MAD` : '';
     const tags = (product.tags || []).slice(0, 5).map(t => `#${String(t).replace(/\s+/g, '')}`).join(' ');
     const desc = product.short_description || (product.description ? this._truncate(product.description, 140) : '');
     return [product.title || '', '', desc, '', priceText, tags].filter(Boolean).join('\n');
+  },
+
+  async validateAndResolveToken() {
+    // Prefer saved values in the Social tab; fallback to CONFIG
+    const pageIdInput = (document.getElementById('fbPageId')?.value || '').trim();
+    const tokenInput  = (document.getElementById('fbPageToken')?.value || '').trim();
+    const pageId = pageIdInput || (CONFIG?.FACEBOOK?.PAGE_ID || '').trim();
+    const token  = tokenInput || (CONFIG?.FACEBOOK?.PAGE_ACCESS_TOKEN || '').trim();
+
+    if (!pageId || !token) {
+      if (window.switchTab) switchTab('social');
+      throw new Error('Missing Facebook Page ID or Access Token');
+    }
+
+    // Quick sanity check: is token valid at all?
+    try {
+      // This will work for both user token and page token; we only check that it’s not expired/invalid.
+      const meRes = await fetch(`https://graph.facebook.com/${this.GRAPH_VERSION}/me?fields=id,name&access_token=${encodeURIComponent(token)}`);
+      if (!meRes.ok) throw await meRes.text();
+      // If it's a user token, resolve the Page token via /me/accounts
+      const me = await meRes.json();
+      if (me && me.id && String(me.id) !== String(pageId)) {
+        // Likely a user token; attempt to fetch page tokens and pick the configured Page
+        const accountsRes = await fetch(`https://graph.facebook.com/${this.GRAPH_VERSION}/me/accounts?access_token=${encodeURIComponent(token)}`);
+        if (accountsRes.ok) {
+          const data = await accountsRes.json();
+          const match = (data?.data || []).find(p => String(p.id) === String(pageId));
+          if (match?.access_token) {
+            return { pageId, token: match.access_token };
+          }
+        }
+      }
+      // Otherwise assume token is a valid Page token (or at least not expired)
+      return { pageId, token };
+    } catch (e) {
+      // If this fails, the token is invalid/expired
+      if (window.switchTab) switchTab('social');
+      throw new Error('Token invalid or expired. Generate a fresh token in Graph API Explorer and paste it in Social tab.');
+    }
   },
 
   async postPhoto(pageId, token, imageUrl, caption) {
@@ -268,11 +320,7 @@ const SocialPoster = {
     if (caption) fd.append('caption', caption);
     fd.append('access_token', token);
     const res = await fetch(url, { method: 'POST', body: fd });
-    if (!res.ok) {
-      let text = '';
-      try { text = await res.text(); } catch {}
-      throw new Error(text || `HTTP ${res.status}`);
-    }
+    await this._ensureOk(res);
     const json = await res.json();
     if (!json || !json.id) throw new Error('No photo ID returned');
     return json;
@@ -284,54 +332,61 @@ const SocialPoster = {
     fd.append('message', message || '');
     fd.append('access_token', token);
     const res = await fetch(url, { method: 'POST', body: fd });
-    if (!res.ok) {
-      let text = '';
-      try { text = await res.text(); } catch {}
-      throw new Error(text || `HTTP ${res.status}`);
-    }
+    await this._ensureOk(res);
     const json = await res.json();
     if (!json || !json.id) throw new Error('No post ID returned');
     return json;
   },
 
-  // --------------------------
-  // Helpers
-  // --------------------------
-  _getTargets() {
-    const all = ProductManager?.products || [];
-    const selectedIdx = ProductManager?.selectedIndices || [];
-    if (selectedIdx.length > 0) {
-      return selectedIdx.map(i => all[i]).filter(Boolean);
-    }
-    return all;
+  async _ensureOk(res) {
+    if (res.ok) return;
+    let text = '';
+    try { text = await res.text(); } catch {}
+    throw new Error(text || `HTTP ${res.status}`);
   },
 
-  _getPageCreds() {
-    // Prefer the Social tab values if present; else CONFIG
-    const pageId = (document.getElementById('fbPageId')?.value || CONFIG?.FACEBOOK?.PAGE_ID || '').trim();
-    const token  = (document.getElementById('fbPageToken')?.value || CONFIG?.FACEBOOK?.PAGE_ACCESS_TOKEN || '').trim();
-    return { pageId, token };
+  _friendlyError(e) {
+    const msg = String(e?.message || e);
+    try {
+      const j = JSON.parse(msg);
+      if (j?.error?.message) return j.error.message;
+    } catch {}
+    if (msg.includes('code":190')) return 'Token expired. Generate a new token and paste it in Social tab.';
+    return msg.slice(0, 300);
+  },
+
+  _isExpiredError(e) {
+    const msg = String(e?.message || e);
+    return /"code":\s*190/.test(msg);
+  },
+
+  // Targets and helpers
+  _getTargets() {
+    const all = ProductManager?.products || [];
+    const sel = ProductManager?.selectedIndices || [];
+    return sel.length ? sel.map(i => all[i]).filter(Boolean) : all;
   },
 
   fillFromSelected() {
     const targets = this._getTargets();
-    if (targets.length === 0) return Utils.notify('No products selected/found', 'warning');
+    if (!targets.length) return Utils.notify('No products selected/found', 'warning');
     const p = targets[0];
-    const caption = this.buildCaption(p);
+    const cap = this.buildCaption(p);
     const img = (p.galleryImageUrls || [])[0] || '';
     const capEl = document.getElementById('socialCaption');
     const imgEl = document.getElementById('socialImageUrl');
-    if (capEl) capEl.value = caption;
+    if (capEl) capEl.value = cap;
     if (imgEl) imgEl.value = img;
+    const counterEl = document.getElementById('socialCharCount');
+    if (counterEl) counterEl.textContent = `${capEl.value.length} / 2200`;
     Utils.notify(`Filled from product: ${p.title}`, 'success');
   },
 
   _sleep(ms) { return new Promise(r => setTimeout(r, ms)); },
-  _truncate(text, len) { return (text && text.length > len) ? text.slice(0, len) + '...' : (text || ''); },
-  _escape(s) { return (s || '').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+  _truncate(t, n) { return (t && t.length > n) ? t.slice(0, n) + '...' : (t || ''); }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
   try { SocialPoster.init(); } catch (e) { console.error('SocialPoster init failed:', e); }
 });
-console.log('✅ SocialPoster loaded: Facebook posting enabled');
+console.log('✅ SocialPoster loaded: Facebook posting with token auto-resolution and expiry handling');
