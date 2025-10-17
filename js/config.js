@@ -21,12 +21,11 @@ const CONFIG = {
   WOO_CONSUMER_SECRET: "cs_a5fe650bd337aa30f1f358d86ba24bf6cacbfba4",
 
   // ========================================
-  // SOCIAL (Facebook) - New
+  // SOCIAL (Facebook) - Simplified
   // ========================================
   FACEBOOK: {
-    // Replace after running the prompts below, or leave as-is and fill in the Social tab UI
-    PAGE_ID: "723649720842554",
-    PAGE_ACCESS_TOKEN: "EAApLV1Qy41ABPqkm8EEcXZCQVckn0ZBvZClrdWPtLO5WAvIcpfMnIZB5VhhEWchAOEjwFjaemwqBehZBlaJOeWYHFaxzcxIF6neZC7Hi892720aWMcE31N8Gv5n8y6GU0qyEkARgzo86l1ZAdk2UAGd1FUUoX5rmhTdrdX2wz3cEuhwNo2S9ZAPpOa4PzYkjiVAQSsQTr5KZA2HS5HFObeGv1bXPKIZA03RXmeLQZDZD"
+    PAGE_ID: "874049099120161",
+    PAGE_ACCESS_TOKEN: "EAAMAZCPO9IcwBPmKJnciwrlHpxZCp0S4HyZA6GAmxA9RyzlwwAXTcdJfiyi3mZBtJYAZBm94CK76CCf0DhbbEA7jWcqRkpqIzOWEDooSwaqJk6Hpd4cQ6jBKCFXm7sUS6b5FyE7M75iOXv3O0OXpHdkGmHnK7ikD9KA4FMd9MN2YgZASKxBHoJjzDafeuKZBTXlqgiVdpQpKe98z72Ub6vmMPpmVhhZAild0ao5aLy4ZD",
   },
   
   // ========================================
@@ -60,56 +59,5 @@ const CONFIG = {
     MIN_TITLE_LENGTH: 10,          // Minimum title characters
     MIN_PRICE: 10,                 // Minimum price (MAD)
     MAX_PRICE: 999999,             // Maximum price (MAD)
-    REQUIRE_CATEGORIES: true,      // Must have at least 1 category
-    REQUIRE_IMAGES: true           // Must have at least 1 image
-  },
-  
-  // ========================================
-  // SUPPORTED LANGUAGES
-  // ========================================
-  LANGUAGES: {
-    en: { name: "English", code: "en" },
-    fr: { name: "Français", code: "fr" },
-    ar: { name: "العربية", code: "ar", rtl: true }
-  },
-  
-  // ========================================
-  // DEFAULT TEMPLATES
-  // ========================================
-  DEFAULT_TEMPLATES: [
-    {
-      id: "tshirt",
-      name: "T-Shirt",
-      icon: "👕",
-      attributes: [
-        { name: "Color", options: ["Black", "White", "Red", "Blue"], variation: true },
-        { name: "Size", options: ["S", "M", "L", "XL"], variation: true }
-      ],
-      priceModifier: {
-        "Size": { "XL": 10, "XXL": 20 }
-      }
-    },
-    {
-      id: "shoes",
-      name: "Shoes",
-      icon: "👟",
-      attributes: [
-        { name: "Size", options: ["38", "39", "40", "41", "42", "43"], variation: true },
-        { name: "Color", options: ["Black", "White", "Brown"], variation: true }
-      ]
-    },
-    {
-      id: "electronics",
-      name: "Electronics",
-      icon: "📱",
-      attributes: [
-        { name: "Color", options: ["Black", "Silver", "Gold"], variation: true }
-      ]
-    }
-  ]
+  }
 };
-
-// Make config globally available
-window.CONFIG = CONFIG;
-
-console.log('✅ Configuration loaded for user:', CONFIG.USER_LOGIN);
