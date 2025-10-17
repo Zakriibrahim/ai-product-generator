@@ -1,25 +1,49 @@
 /**
- * Social Poster - Facebook posting + Social tab
- * - Header "Post to Facebook" button next to Upload to WooCommerce
- * - Posts selected products, or all if none selected
- * - Photo post with caption (uses first image), text-only fallback
- * - Uses CONFIG.FACEBOOK, but can override with values saved in localStorage (kept on your machine)
- * - Auto-resolves Page token from a User token via /me/accounts
- * - Friendly handling of expired tokens (code 190/subcode 463)
+ * Social Poster - Webhook or Backend posting (no tokens in the browser)
+ * Priority:
+ *  1) If a Webhook URL is set (localStorage), post there (e.g., Make/Zapier)
+ *  2) Else, if local backend is running (/api/health), post via backend
+ *  3) Else, show guidance
  */
 const SocialPoster = {
-  GRAPH_VERSION: 'v19.0',
-  LS_PAGE_ID: 'fbPageId',
-  LS_PAGE_TOKEN: 'fbPageToken',
+  // LocalStorage keys
+  LS_WEBHOOK_URL: 'socialWebhookUrl',
+  // Backend autodetect candidates
+  API_CANDIDATES: ['', 'http://localhost:3000'],
+  _apiBase: null,
 
-  init() {
-    this.injectTab();
+  async init() {
     this.injectHeaderButton();
+    this.injectTab();
     this.bindUI();
-    this.prefillFromConfig();
+    await this.detectApiBase();
   },
 
-  // Header button (next to Fetch)
+  async detectApiBase() {
+    for (const base of this.API_CANDIDATES) {
+      try {
+        const url = base ? `${base}/api/health` : '/api/health';
+        const res = await fetch(url, { method: 'GET' });
+        if (res.ok) {
+          const j = await res.json();
+          if (j && j.ok) {
+            this._apiBase = base;
+            console.log('✅ SocialPoster API base:', this._apiBase || '(same origin)');
+            this.updateStatus();
+            return;
+          }
+        }
+      } catch {}
+    }
+    console.warn('⚠ No backend detected. Optional: npm start --prefix server (if you added the backend).');
+    this.updateStatus();
+  },
+
+  api(path) {
+    return (this._apiBase ? this._apiBase : '') + path;
+  },
+
+  // Header button next to "Fetch from Store"
   injectHeaderButton() {
     const fetchBtn = document.getElementById('fetchProductsBtn');
     if (!fetchBtn) return;
@@ -33,7 +57,7 @@ const SocialPoster = {
     btn.addEventListener('click', () => this.openConfirmModal());
   },
 
-  // Tab injection (inside main card for clean layout)
+  // Social tab with Webhook URL field
   injectTab() {
     const tabContainer = document.querySelector('.tab-container');
     if (tabContainer && !document.querySelector('.tab-btn[data-tab="social"]')) {
@@ -43,8 +67,7 @@ const SocialPoster = {
       btn.innerHTML = '<i class="fas fa-share-alt"></i> Social Posts';
       btn.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
-        if (window.TabManager) TabManager.switchTab('social');
-        else if (window.switchTab) switchTab('social');
+        if (window.TabManager) TabManager.switchTab('social'); else if (window.switchTab) switchTab('social');
       });
       tabContainer.appendChild(btn);
     }
@@ -56,69 +79,46 @@ const SocialPoster = {
       socialTab.innerHTML = `
         <div class="p-4">
           <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-indigo-700">
-              <i class="fas fa-share-alt"></i> Social Posts
-            </h2>
-            <div class="text-sm text-zinc-500">
-              One-click post via the header button. Manage your Page ID/Token here if needed.
-            </div>
+            <h2 class="text-2xl font-bold text-indigo-700"><i class="fas fa-share-alt"></i> Social Posts</h2>
+            <div class="text-sm text-zinc-500">Use a webhook (Make/Zapier) or the optional local backend.</div>
           </div>
 
           <div class="grid md:grid-cols-2 gap-6">
             <div class="bg-white border-2 border-zinc-200 rounded-xl p-4">
-              <h3 class="font-semibold text-indigo-700 mb-3">Compose</h3>
+              <h3 class="font-semibold text-indigo-700 mb-3">Compose (optional)</h3>
 
               <div class="mb-3">
                 <label class="block font-semibold mb-2">Caption</label>
-                <textarea id="socialCaption" rows="8"
-                  class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none"
-                  placeholder="Write your post caption..."></textarea>
+                <textarea id="socialCaption" rows="8" class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none" placeholder="Write your post caption..."></textarea>
                 <div class="text-xs text-zinc-500 mt-1">Characters: <span id="socialCharCount">0 / 2200</span></div>
               </div>
 
               <div class="mb-3">
                 <label class="block font-semibold mb-2">Image URL (optional)</label>
-                <input id="socialImageUrl" type="text" placeholder="https://..."
-                      class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-                <p class="text-xs text-zinc-500 mt-1">Tip: Posting will automatically use the first image of each product.</p>
+                <input id="socialImageUrl" type="text" placeholder="https://..." class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                <p class="text-xs text-zinc-500 mt-1">If blank, we use each product's first image. Without image, we post text-only.</p>
               </div>
 
-              <div class="flex gap-2 flex-wrap">
-                <button id="socialUseSelectedBtn" class="btn btn-blue btn-sm">
-                  <i class="fas fa-magic"></i> Use Selected Product
-                </button>
-                <button id="socialCopyCaptionBtn" class="btn btn-gray btn-sm">
-                  <i class="fas fa-copy"></i> Copy Caption
-                </button>
+              <div class="flex gap-2">
+                <button id="socialUseSelectedBtn" class="btn btn-blue btn-sm"><i class="fas fa-magic"></i> Use Selected Product</button>
+                <button id="socialCopyCaptionBtn" class="btn btn-gray btn-sm"><i class="fas fa-copy"></i> Copy Caption</button>
               </div>
             </div>
 
             <div class="bg-white border-2 border-zinc-200 rounded-xl p-4">
-              <h3 class="font-semibold text-indigo-700 mb-3">Facebook Page</h3>
+              <h3 class="font-semibold text-indigo-700 mb-3">Webhook / Backend</h3>
 
               <div class="mb-3">
-                <label class="block font-semibold mb-2">Page ID</label>
-                <input id="fbPageId" type="text" placeholder="1234567890"
-                      class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                <label class="block font-semibold mb-2">Webhook URL (Make/Zapier)</label>
+                <input id="socialWebhookUrl" type="text" placeholder="https://hook.integromat.com/..." class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
+                <div class="flex gap-2 mt-2">
+                  <button id="saveWebhookBtn" class="btn btn-indigo btn-sm"><i class="fas fa-save"></i> Save</button>
+                  <button id="clearWebhookBtn" class="btn btn-pink btn-sm"><i class="fas fa-eraser"></i> Clear</button>
+                </div>
               </div>
 
-              <div class="mb-2">
-                <label class="block font-semibold mb-2">Page Access Token or User Token</label>
-                <input id="fbPageToken" type="password" placeholder="EAAG..."
-                      class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none">
-              </div>
-              <div class="flex gap-2 mb-3">
-                <button id="saveFbCredsBtn" class="btn btn-indigo btn-sm">
-                  <i class="fas fa-save"></i> Save Token Locally
-                </button>
-                <button id="clearFbCredsBtn" class="btn btn-pink btn-sm">
-                  <i class="fas fa-eraser"></i> Clear Saved Token
-                </button>
-              </div>
-
-              <div class="bg-zinc-50 border rounded p-3 text-sm text-zinc-600">
-                <p><strong>Tip:</strong> You can paste a User token here; we’ll auto-resolve your Page token using /me/accounts for your Page ID.</p>
-                <p class="mt-1">If your token expires, you’ll be prompted to paste a fresh one.</p>
+              <div id="socialBackendStatus" class="text-sm text-zinc-600">
+                Optional backend status: looking...
               </div>
             </div>
           </div>
@@ -133,54 +133,47 @@ const SocialPoster = {
     const captionEl = document.getElementById('socialCaption');
     const counterEl = document.getElementById('socialCharCount');
     if (captionEl) {
-      const update = () => { counterEl && (counterEl.textContent = `${captionEl.value.length} / 2200`); };
+      const update = () => { if (counterEl) counterEl.textContent = `${captionEl.value.length} / 2200`; };
       captionEl.addEventListener('input', update); update();
     }
 
     document.getElementById('socialUseSelectedBtn')?.addEventListener('click', () => this.fillFromSelected());
-
     document.getElementById('socialCopyCaptionBtn')?.addEventListener('click', () => {
       const text = (document.getElementById('socialCaption')?.value || '').trim();
       if (!text) return Utils.notify('Nothing to copy', 'warning');
       navigator.clipboard.writeText(text).then(() => Utils.notify('Caption copied', 'success'));
     });
 
-    document.getElementById('saveFbCredsBtn')?.addEventListener('click', () => {
-      const id = (document.getElementById('fbPageId')?.value || '').trim();
-      const tok = (document.getElementById('fbPageToken')?.value || '').trim();
-      if (!id || !tok) return Utils.notify('Enter Page ID and a token first', 'warning');
-      try {
-        localStorage.setItem(this.LS_PAGE_ID, id);
-        localStorage.setItem(this.LS_PAGE_TOKEN, tok);
-        Utils.notify('Saved locally', 'success');
-      } catch { Utils.notify('Could not save locally', 'error'); }
+    // Webhook save/clear
+    const urlInput = document.getElementById('socialWebhookUrl');
+    const saved = localStorage.getItem(this.LS_WEBHOOK_URL);
+    if (urlInput && saved) urlInput.value = saved;
+
+    document.getElementById('saveWebhookBtn')?.addEventListener('click', () => {
+      const url = (document.getElementById('socialWebhookUrl')?.value || '').trim();
+      if (!url) return Utils.notify('Enter a webhook URL first', 'warning');
+      try { localStorage.setItem(this.LS_WEBHOOK_URL, url); Utils.notify('Webhook saved locally', 'success'); this.updateStatus(); }
+      catch { Utils.notify('Could not save webhook URL', 'error'); }
+    });
+    document.getElementById('clearWebhookBtn')?.addEventListener('click', () => {
+      try { localStorage.removeItem(this.LS_WEBHOOK_URL); if (document.getElementById('socialWebhookUrl')) document.getElementById('socialWebhookUrl').value=''; Utils.notify('Webhook cleared', 'success'); this.updateStatus(); }
+      catch {}
     });
 
-    document.getElementById('clearFbCredsBtn')?.addEventListener('click', () => {
-      try {
-        localStorage.removeItem(this.LS_PAGE_ID);
-        localStorage.removeItem(this.LS_PAGE_TOKEN);
-        Utils.notify('Cleared local token', 'success');
-      } catch {}
-    });
+    this.updateStatus();
   },
 
-  prefillFromConfig() {
-    const cfg = (window.CONFIG && window.CONFIG.FACEBOOK) ? window.CONFIG.FACEBOOK : {};
-    const idFromLS = localStorage.getItem(this.LS_PAGE_ID);
-    const tokFromLS = localStorage.getItem(this.LS_PAGE_TOKEN);
-
-    const idEl = document.getElementById('fbPageId');
-    const tokEl = document.getElementById('fbPageToken');
-
-    const pageId = idFromLS || cfg.PAGE_ID || '';
-    const token = tokFromLS || cfg.PAGE_ACCESS_TOKEN || '';
-
-    if (idEl && pageId) idEl.value = pageId;
-    if (tokEl && token) tokEl.value = token;
+  updateStatus() {
+    const s = document.getElementById('socialBackendStatus');
+    if (!s) return;
+    const webhook = localStorage.getItem(this.LS_WEBHOOK_URL);
+    const parts = [];
+    if (webhook) parts.push(`Webhook: <span class="text-green-700">SET</span>`);
+    else parts.push(`Webhook: <span class="text-red-700">NOT SET</span>`);
+    parts.push(`Backend: ${this._apiBase !== null ? '<span class="text-green-700">AVAILABLE</span>' : '<span class="text-yellow-700">NOT DETECTED</span>'}`);
+    s.innerHTML = parts.join(' • ');
   },
 
-  // Confirm and batch post
   openConfirmModal() {
     const products = this._getTargets();
     if (products.length === 0) return Utils.notify('No products to post. Generate or fetch first.', 'warning');
@@ -195,12 +188,9 @@ const SocialPoster = {
         </div>
         <div class="space-y-4">
           <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-            <p class="text-sm text-blue-800">
-              Products to post: <strong>${products.length}</strong><br>
-              Mode: <strong>${ProductManager.selectedIndices?.length ? 'Selected only' : 'All products'}</strong>
-            </p>
+            <p class="text-sm text-blue-800">Products to post: <strong>${products.length}</strong> — ${ProductManager.selectedIndices?.length ? 'Selected only' : 'All products'}</p>
+            <p class="text-xs text-blue-800 mt-2">We will use Webhook (if set) or fallback to the local backend if available.</p>
           </div>
-          <p class="text-sm text-zinc-600">We will use your Page ID and Token from the Social tab (or CONFIG). If you pasted a User token, we’ll attempt to auto-resolve the Page token.</p>
         </div>
         <div class="flex gap-3 justify-end mt-6 pt-6 border-t">
           <button onclick="closeModal()" class="btn btn-gray"><i class="fas fa-times"></i> Cancel</button>
@@ -223,144 +213,67 @@ const SocialPoster = {
     if (btn) btn.disabled = true;
 
     try {
-      // Resolve a good token before starting (handles user token -> page token, and basic validity check)
-      const { pageId, token } = await this.validateAndResolveToken();
+      // Build items
+      const items = products.map(p => {
+        const forcedCaption = (document.getElementById('socialCaption')?.value || '').trim();
+        const caption = forcedCaption || this.buildCaption(p);
+        const forcedImage = (document.getElementById('socialImageUrl')?.value || '').trim();
+        const imageUrl = forcedImage || (p.galleryImageUrls || [])[0] || '';
+        return {
+          title: p.title || '',
+          sku: p.sku || '',
+          price: p.price || '',
+          permalink: p.permalink || '',
+          imageUrl,
+          caption
+        };
+      });
 
-      let ok = 0, fail = 0;
-      for (let i = 0; i < products.length; i++) {
-        const p = products[i];
-        if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Posting ${i + 1}/${products.length}...`;
+      if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Posting ${items.length}...`;
 
-        try {
-          const caption = this.buildCaption(p);
-          const imageUrl = (p.galleryImageUrls || [])[0] || '';
-          if (imageUrl) {
-            await this.postPhoto(pageId, token, imageUrl, caption);
-          } else {
-            await this.postText(pageId, token, caption);
-          }
-          ok++;
-          Utils.notify(`✓ Posted: ${p.title}`, 'success', 2000);
-        } catch (e) {
-          fail++;
-          const friendly = this._friendlyError(e);
-          Utils.notify(`✗ Failed: ${p.title} — ${friendly}`, 'error', 6000);
-          console.error('Facebook post error:', e);
-          // If token expired mid-run, stop and prompt refresh
-          if (this._isExpiredError(e)) {
-            Utils.notify('Your token expired. Paste a fresh token in Social tab.', 'warning', 6000);
-            break;
-          }
-        }
-        await this._sleep(650);
+      const webhook = localStorage.getItem(this.LS_WEBHOOK_URL);
+      if (webhook) {
+        const res = await fetch(webhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items })
+        });
+        if (!res.ok) throw new Error(await res.text().catch(()=>'HTTP '+res.status));
+        Utils.notify(`🎉 Sent ${items.length} item(s) to webhook`, 'success', 5000);
+        return;
       }
 
-      if (fail === 0) {
-        Utils.notify(`🎉 Posted ${ok}/${products.length} products successfully!`, 'success', 5000);
-      } else {
-        Utils.notify(`⚠ Posted ${ok}, Failed ${fail}. See console for details.`, 'warning', 6000);
+      if (this._apiBase !== null) {
+        const res = await fetch(this.api('/api/facebook/post-batch'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items })
+        });
+        if (!res.ok) throw new Error(await res.text().catch(()=>'HTTP '+res.status));
+        const data = await res.json().catch(()=>({}));
+        const posted = data?.posted ?? items.length;
+        const failed = data?.failed ?? 0;
+        if (failed === 0) Utils.notify(`🎉 Posted ${posted}/${items.length} via backend`, 'success', 6000);
+        else Utils.notify(`⚠ Posted ${posted}, Failed ${failed} via backend`, 'warning', 6000);
+        return;
       }
+
+      Utils.notify('No Webhook set and no backend detected. Set a Webhook URL in Social tab (Make/Zapier).', 'error', 7000);
+    } catch (e) {
+      Utils.notify(`Post failed: ${String(e.message || e).slice(0, 200)}`, 'error', 8000);
+      console.error('post-batch error:', e);
     } finally {
       if (btn) { btn.innerHTML = original; btn.disabled = false; }
     }
   },
 
-  buildCaption(product) {
-    const baseCaption = (document.getElementById('socialCaption')?.value || '').trim();
-    if (baseCaption) return baseCaption;
-    const priceText = product.price ? `${parseFloat(product.price).toFixed(2)} MAD` : '';
-    const tags = (product.tags || []).slice(0, 5).map(t => `#${String(t).replace(/\s+/g, '')}`).join(' ');
-    const desc = product.short_description || (product.description ? this._truncate(product.description, 140) : '');
-    return [product.title || '', '', desc, '', priceText, tags].filter(Boolean).join('\n');
+  buildCaption(p) {
+    const priceText = p.price ? `${parseFloat(p.price).toFixed(2)} MAD` : '';
+    const tags = (p.tags || []).slice(0, 5).map(t => `#${String(t).replace(/\s+/g, '')}`).join(' ');
+    const desc = p.short_description || (p.description ? this._truncate(p.description, 140) : '');
+    return [p.title || '', '', desc, '', priceText, tags].filter(Boolean).join('\n');
   },
 
-  async validateAndResolveToken() {
-    // Prefer saved values in the Social tab; fallback to CONFIG
-    const pageIdInput = (document.getElementById('fbPageId')?.value || '').trim();
-    const tokenInput  = (document.getElementById('fbPageToken')?.value || '').trim();
-    const pageId = pageIdInput || (CONFIG?.FACEBOOK?.PAGE_ID || '').trim();
-    const token  = tokenInput || (CONFIG?.FACEBOOK?.PAGE_ACCESS_TOKEN || '').trim();
-
-    if (!pageId || !token) {
-      if (window.switchTab) switchTab('social');
-      throw new Error('Missing Facebook Page ID or Access Token');
-    }
-
-    // Quick sanity check: is token valid at all?
-    try {
-      // This will work for both user token and page token; we only check that it’s not expired/invalid.
-      const meRes = await fetch(`https://graph.facebook.com/${this.GRAPH_VERSION}/me?fields=id,name&access_token=${encodeURIComponent(token)}`);
-      if (!meRes.ok) throw await meRes.text();
-      // If it's a user token, resolve the Page token via /me/accounts
-      const me = await meRes.json();
-      if (me && me.id && String(me.id) !== String(pageId)) {
-        // Likely a user token; attempt to fetch page tokens and pick the configured Page
-        const accountsRes = await fetch(`https://graph.facebook.com/${this.GRAPH_VERSION}/me/accounts?access_token=${encodeURIComponent(token)}`);
-        if (accountsRes.ok) {
-          const data = await accountsRes.json();
-          const match = (data?.data || []).find(p => String(p.id) === String(pageId));
-          if (match?.access_token) {
-            return { pageId, token: match.access_token };
-          }
-        }
-      }
-      // Otherwise assume token is a valid Page token (or at least not expired)
-      return { pageId, token };
-    } catch (e) {
-      // If this fails, the token is invalid/expired
-      if (window.switchTab) switchTab('social');
-      throw new Error('Token invalid or expired. Generate a fresh token in Graph API Explorer and paste it in Social tab.');
-    }
-  },
-
-  async postPhoto(pageId, token, imageUrl, caption) {
-    const url = `https://graph.facebook.com/${this.GRAPH_VERSION}/${encodeURIComponent(pageId)}/photos`;
-    const fd = new FormData();
-    fd.append('url', imageUrl);
-    if (caption) fd.append('caption', caption);
-    fd.append('access_token', token);
-    const res = await fetch(url, { method: 'POST', body: fd });
-    await this._ensureOk(res);
-    const json = await res.json();
-    if (!json || !json.id) throw new Error('No photo ID returned');
-    return json;
-  },
-
-  async postText(pageId, token, message) {
-    const url = `https://graph.facebook.com/${this.GRAPH_VERSION}/${encodeURIComponent(pageId)}/feed`;
-    const fd = new FormData();
-    fd.append('message', message || '');
-    fd.append('access_token', token);
-    const res = await fetch(url, { method: 'POST', body: fd });
-    await this._ensureOk(res);
-    const json = await res.json();
-    if (!json || !json.id) throw new Error('No post ID returned');
-    return json;
-  },
-
-  async _ensureOk(res) {
-    if (res.ok) return;
-    let text = '';
-    try { text = await res.text(); } catch {}
-    throw new Error(text || `HTTP ${res.status}`);
-  },
-
-  _friendlyError(e) {
-    const msg = String(e?.message || e);
-    try {
-      const j = JSON.parse(msg);
-      if (j?.error?.message) return j.error.message;
-    } catch {}
-    if (msg.includes('code":190')) return 'Token expired. Generate a new token and paste it in Social tab.';
-    return msg.slice(0, 300);
-  },
-
-  _isExpiredError(e) {
-    const msg = String(e?.message || e);
-    return /"code":\s*190/.test(msg);
-  },
-
-  // Targets and helpers
   _getTargets() {
     const all = ProductManager?.products || [];
     const sel = ProductManager?.selectedIndices || [];
@@ -382,11 +295,8 @@ const SocialPoster = {
     Utils.notify(`Filled from product: ${p.title}`, 'success');
   },
 
-  _sleep(ms) { return new Promise(r => setTimeout(r, ms)); },
   _truncate(t, n) { return (t && t.length > n) ? t.slice(0, n) + '...' : (t || ''); }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  try { SocialPoster.init(); } catch (e) { console.error('SocialPoster init failed:', e); }
-});
-console.log('✅ SocialPoster loaded: Facebook posting with token auto-resolution and expiry handling');
+document.addEventListener('DOMContentLoaded', () => { SocialPoster.init().catch(console.error); });
+console.log('✅ SocialPoster loaded: Webhook/Backend posting')
