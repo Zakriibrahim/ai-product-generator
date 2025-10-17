@@ -1,14 +1,18 @@
 /**
- * Social Poster - Webhook or Backend posting (no tokens in the browser)
- * Priority:
- *  1) If a Webhook URL is set (localStorage), post there (e.g., Make/Zapier)
- *  2) Else, if local backend is running (/api/health), post via backend
- *  3) Else, show guidance
+ * Social Poster - Webhook/Backend posting
+ * - Always uses your default webhook unless you override it in the UI
+ * - Adds "Use this caption for all posts" checkbox; avoids stale captions
+ * - Posts selected products, or all if none selected
+ * - Skips file:/// health check; backend is optional
  */
 const SocialPoster = {
-  // LocalStorage keys
+  // Your default Make webhook (hardcoded so you never re-enter it)
+  DEFAULT_WEBHOOK: "https://hook.eu2.make.com/6fj2x2monxp086wde3qxx39ypbw5vf6y",
+
+  // LocalStorage key to optionally override the webhook
   LS_WEBHOOK_URL: 'socialWebhookUrl',
-  // Backend autodetect candidates
+
+  // Optional backend autodetect (can ignore if you only use webhook)
   API_CANDIDATES: ['', 'http://localhost:3000'],
   _apiBase: null,
 
@@ -19,8 +23,19 @@ const SocialPoster = {
     await this.detectApiBase();
   },
 
+  // Prefer saved webhook; else the default hardcoded value
+  getWebhook() {
+    const local = localStorage.getItem(this.LS_WEBHOOK_URL);
+    return (local && local.trim()) ? local.trim() : this.DEFAULT_WEBHOOK;
+  },
+
   async detectApiBase() {
-    for (const base of this.API_CANDIDATES) {
+    // If opened from file://, skip same-origin candidate to avoid file:///api/health error
+    const candidates = (location.protocol === 'file:')
+      ? ['http://localhost:3000']
+      : this.API_CANDIDATES;
+
+    for (const base of candidates) {
       try {
         const url = base ? `${base}/api/health` : '/api/health';
         const res = await fetch(url, { method: 'GET' });
@@ -35,7 +50,8 @@ const SocialPoster = {
         }
       } catch {}
     }
-    console.warn('⚠ No backend detected. Optional: npm start --prefix server (if you added the backend).');
+    this._apiBase = null;
+    console.warn('⚠ No backend detected. Webhook mode will be used.');
     this.updateStatus();
   },
 
@@ -57,7 +73,7 @@ const SocialPoster = {
     btn.addEventListener('click', () => this.openConfirmModal());
   },
 
-  // Social tab with Webhook URL field
+  // Social tab with Webhook URL field and a caption toggle
   injectTab() {
     const tabContainer = document.querySelector('.tab-container');
     if (tabContainer && !document.querySelector('.tab-btn[data-tab="social"]')) {
@@ -80,7 +96,7 @@ const SocialPoster = {
         <div class="p-4">
           <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold text-indigo-700"><i class="fas fa-share-alt"></i> Social Posts</h2>
-            <div class="text-sm text-zinc-500">Use a webhook (Make/Zapier) or the optional local backend.</div>
+            <div class="text-sm text-zinc-500">Uses your saved webhook by default. Backend is optional.</div>
           </div>
 
           <div class="grid md:grid-cols-2 gap-6">
@@ -90,6 +106,10 @@ const SocialPoster = {
               <div class="mb-3">
                 <label class="block font-semibold mb-2">Caption</label>
                 <textarea id="socialCaption" rows="8" class="w-full p-3 border-2 border-zinc-200 rounded-lg focus:border-indigo-500 focus:outline-none resize-none" placeholder="Write your post caption..."></textarea>
+                <div class="flex items-center gap-2 mt-2">
+                  <input id="useComposeCaption" type="checkbox" class="w-4 h-4">
+                  <label for="useComposeCaption" class="text-sm text-zinc-700">Use this caption for all posts</label>
+                </div>
                 <div class="text-xs text-zinc-500 mt-1">Characters: <span id="socialCharCount">0 / 2200</span></div>
               </div>
 
@@ -115,11 +135,10 @@ const SocialPoster = {
                   <button id="saveWebhookBtn" class="btn btn-indigo btn-sm"><i class="fas fa-save"></i> Save</button>
                   <button id="clearWebhookBtn" class="btn btn-pink btn-sm"><i class="fas fa-eraser"></i> Clear</button>
                 </div>
+                <p class="text-xs text-zinc-500 mt-2">If empty, we will use the default webhook baked into the app.</p>
               </div>
 
-              <div id="socialBackendStatus" class="text-sm text-zinc-600">
-                Optional backend status: looking...
-              </div>
+              <div id="socialBackendStatus" class="text-sm text-zinc-600">Status: ...</div>
             </div>
           </div>
         </div>
@@ -147,7 +166,8 @@ const SocialPoster = {
     // Webhook save/clear
     const urlInput = document.getElementById('socialWebhookUrl');
     const saved = localStorage.getItem(this.LS_WEBHOOK_URL);
-    if (urlInput && saved) urlInput.value = saved;
+    const effective = saved || this.DEFAULT_WEBHOOK;
+    if (urlInput) urlInput.value = saved || '';
 
     document.getElementById('saveWebhookBtn')?.addEventListener('click', () => {
       const url = (document.getElementById('socialWebhookUrl')?.value || '').trim();
@@ -156,7 +176,7 @@ const SocialPoster = {
       catch { Utils.notify('Could not save webhook URL', 'error'); }
     });
     document.getElementById('clearWebhookBtn')?.addEventListener('click', () => {
-      try { localStorage.removeItem(this.LS_WEBHOOK_URL); if (document.getElementById('socialWebhookUrl')) document.getElementById('socialWebhookUrl').value=''; Utils.notify('Webhook cleared', 'success'); this.updateStatus(); }
+      try { localStorage.removeItem(this.LS_WEBHOOK_URL); if (document.getElementById('socialWebhookUrl')) document.getElementById('socialWebhookUrl').value=''; Utils.notify('Webhook cleared (default will be used)', 'success'); this.updateStatus(); }
       catch {}
     });
 
@@ -166,10 +186,12 @@ const SocialPoster = {
   updateStatus() {
     const s = document.getElementById('socialBackendStatus');
     if (!s) return;
-    const webhook = localStorage.getItem(this.LS_WEBHOOK_URL);
+    const saved = localStorage.getItem(this.LS_WEBHOOK_URL);
+    const effectiveWebhook = this.getWebhook();
+    const usingDefault = !saved && !!this.DEFAULT_WEBHOOK;
+
     const parts = [];
-    if (webhook) parts.push(`Webhook: <span class="text-green-700">SET</span>`);
-    else parts.push(`Webhook: <span class="text-red-700">NOT SET</span>`);
+    parts.push(`Webhook: <span class="text-green-700">SET</span> ${usingDefault ? '(default)' : '(custom)'}`);
     parts.push(`Backend: ${this._apiBase !== null ? '<span class="text-green-700">AVAILABLE</span>' : '<span class="text-yellow-700">NOT DETECTED</span>'}`);
     s.innerHTML = parts.join(' • ');
   },
@@ -189,7 +211,7 @@ const SocialPoster = {
         <div class="space-y-4">
           <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
             <p class="text-sm text-blue-800">Products to post: <strong>${products.length}</strong> — ${ProductManager.selectedIndices?.length ? 'Selected only' : 'All products'}</p>
-            <p class="text-xs text-blue-800 mt-2">We will use Webhook (if set) or fallback to the local backend if available.</p>
+            <p class="text-xs text-blue-800 mt-2">We will send to your webhook. Backend is ignored unless no webhook is set.</p>
           </div>
         </div>
         <div class="flex gap-3 justify-end mt-6 pt-6 border-t">
@@ -213,11 +235,13 @@ const SocialPoster = {
     if (btn) btn.disabled = true;
 
     try {
-      // Build items
+      // Build items for webhook/backend
+      const useCompose = document.getElementById('useComposeCaption')?.checked;
+      const composeCaption = (document.getElementById('socialCaption')?.value || '').trim();
+      const forcedImage = (document.getElementById('socialImageUrl')?.value || '').trim();
+
       const items = products.map(p => {
-        const forcedCaption = (document.getElementById('socialCaption')?.value || '').trim();
-        const caption = forcedCaption || this.buildCaption(p);
-        const forcedImage = (document.getElementById('socialImageUrl')?.value || '').trim();
+        const caption = useCompose ? composeCaption : this.buildCaption(p);
         const imageUrl = forcedImage || (p.galleryImageUrls || [])[0] || '';
         return {
           title: p.title || '',
@@ -231,7 +255,7 @@ const SocialPoster = {
 
       if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Posting ${items.length}...`;
 
-      const webhook = localStorage.getItem(this.LS_WEBHOOK_URL);
+      const webhook = this.getWebhook();
       if (webhook) {
         const res = await fetch(webhook, {
           method: 'POST',
@@ -299,4 +323,4 @@ const SocialPoster = {
 };
 
 document.addEventListener('DOMContentLoaded', () => { SocialPoster.init().catch(console.error); });
-console.log('✅ SocialPoster loaded: Webhook/Backend posting')
+console.log('✅ SocialPoster loaded: Webhook posting (default URL + compose toggle)')
