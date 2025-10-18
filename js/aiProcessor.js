@@ -12,7 +12,6 @@ const AIProcessor = {
   async makeApiCall(payload) {
     const url = `${CONFIG.GEMINI_API_URL}?key=${CONFIG.GEMINI_API_KEY}`;
     
-    // Rate limiting delay
     await new Promise(r => setTimeout(r, CONFIG.API_DELAY_MS));
     
     const response = await fetch(url, {
@@ -41,15 +40,16 @@ const AIProcessor = {
   async generateProduct(images, note = '') {
     const base64s = [];
     
-    // Convert all images to base64
     for (const imgObj of images) {
       let b64;
       if (imgObj.file && imgObj.file instanceof File) {
         b64 = await ImageHandler.fileToBase64(imgObj.file);
+      } else if (imgObj.preview && imgObj.preview.startsWith('data:image')) {
+        b64 = imgObj.preview.split(',')[1];
       } else if (imgObj.url) {
         b64 = await ImageHandler.urlToBase64(imgObj.url);
       } else {
-        throw new Error('Image has no file or URL');
+        throw new Error('Image has no valid source');
       }
       base64s.push(b64);
     }
@@ -118,7 +118,6 @@ RETURN ONLY THE JSON, NO MARKDOWN, NO EXTRA TEXT.`;
       throw new Error("AI did not return valid product data");
     }
     
-    // Normalize fields
     product.tags = Array.isArray(product.tags) ? product.tags : [product.tags || ''];
     product.categories = Array.isArray(product.categories) ? product.categories : [product.categories || ''];
     product.attributes = Array.isArray(product.attributes) ? product.attributes : [];
@@ -136,7 +135,7 @@ RETURN ONLY THE JSON, NO MARKDOWN, NO EXTRA TEXT.`;
    * Translate product to language
    */
   async translateProduct(product, targetLang) {
-    if (targetLang === 'en') return product; // Already in English
+    if (targetLang === 'en') return product;
     
     const prompt = `Translate this WooCommerce product to ${CONFIG.LANGUAGES[targetLang].name} (${targetLang}).
 

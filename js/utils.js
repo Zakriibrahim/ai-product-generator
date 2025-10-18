@@ -1,185 +1,87 @@
 /**
- * Utility Functions
- * Helper functions used throughout the app
+ * Utils - Complete with all functions
  */
-
 const Utils = {
-  /**
-   * Deep clone an object
-   */
-  deepClone(obj) {
-    return JSON.parse(JSON.stringify(obj || {}));
+  notify(message, type = 'info', duration = 10000) {
+    console.log(`[NOTIFY ${type.toUpperCase()}] ${message}`);
+    
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+      <div class="flex items-center justify-between gap-3">
+        <span>${message}</span>
+        <button onclick="this.parentElement.parentElement.remove()" class="text-xl font-bold">×</button>
+      </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => notification.classList.add('show'), 10);
+    
+    setTimeout(() => {
+      notification.classList.remove('show');
+      setTimeout(() => notification.remove(), 300);
+    }, duration);
   },
-  
-  /**
-   * Escape HTML to prevent XSS
-   */
-  escapeHtml(str) {
+
+  escapeHtml(text) {
+    if (!text) return '';
     const map = {
       '&': '&amp;',
       '<': '&lt;',
       '>': '&gt;',
       '"': '&quot;',
-      "'": '&#39;'
+      "'": '&#039;'
     };
-    return String(str || '').replace(/[&<>"']/g, m => map[m]);
+    return String(text).replace(/[&<>"']/g, m => map[m]);
   },
-  
-  /**
-   * Format date to UTC string
-   */
-  formatDate(date = new Date()) {
-    const pad = (n) => String(n).padStart(2, '0');
-    const y = date.getUTCFullYear();
-    const m = pad(date.getUTCMonth() + 1);
-    const d = pad(date.getUTCDate());
-    const h = pad(date.getUTCHours());
-    const min = pad(date.getUTCMinutes());
-    const s = pad(date.getUTCSeconds());
-    return `${y}-${m}-${d} ${h}:${min}:${s}`;
-  },
-  
-  /**
-   * Update clock display
-   */
-  updateClock() {
-    const elem = document.getElementById('currentDateTime');
-    if (elem) {
-      elem.textContent = this.formatDate();
-    }
-  },
-  
-  /**
-   * Parse JSON safely from AI response
-   */
-  parseJSON(text, defaultValue = null) {
+
+  parseJSON(text, fallback = null) {
     try {
-      // Try to find JSON in text
-      const match = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-      if (match) {
-        const cleaned = match[0].replace(/,(\s*[}\]])/g, '$1').trim();
-        return JSON.parse(cleaned);
-      }
-      return defaultValue;
+      return JSON.parse(text);
     } catch (e) {
-      console.error('JSON parse error:', e, 'Text:', text);
-      return defaultValue;
+      console.error('JSON parse error:', e);
+      console.error('Text:', text);
+      return fallback;
     }
   },
-  
-  /**
-   * Show toast notification
-   */
-  notify(message, type = 'info', duration = 3000) {
-    const colors = {
-      success: '#22c55e',
-      error: '#ef4444',
-      info: '#6366f1',
-      warning: '#f59e0b'
-    };
-    
-    const icons = {
-      success: '✓',
-      error: '✕',
-      info: 'ℹ',
-      warning: '⚠'
-    };
-    
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: ${colors[type]};
-      color: white;
-      padding: 1rem 1.5rem;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-      z-index: 99999;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      animation: slideInRight 0.3s ease-out;
-      max-width: 400px;
-    `;
-    notification.innerHTML = `<span style="font-size:1.2rem;">${icons[type]}</span> ${this.escapeHtml(message)}`;
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-      notification.style.opacity = '0';
-      notification.style.transform = 'translateX(100px)';
-      setTimeout(() => notification.remove(), 300);
-    }, duration);
-  },
-  
-  /**
-   * Download file
-   */
-  downloadFile(content, filename, type = 'application/json') {
-    const blob = new Blob([content], { type });
+
+  downloadFile(content, filename) {
+    const blob = new Blob([content], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   },
-  
-  /**
-   * Generate unique ID
-   */
-  generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
-  },
-  
-  /**
-   * Debounce function
-   */
-  debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
+
+  updateClock() {
+    const updateTime = () => {
+      const now = new Date();
+      const formatted = now.toISOString().slice(0, 19).replace('T', ' ');
+      const el = document.getElementById('currentDateTime');
+      if (el) el.textContent = formatted;
     };
+    
+    updateTime();
+    setInterval(updateTime, 1000);
   },
-  
-  /**
-   * Format price
-   */
-  formatPrice(price) {
-    const num = parseFloat(price) || 0;
-    return num.toFixed(2) + ' MAD';
+
+  stripHtml(html) {
+    if (!html) return '';
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return div.textContent || div.innerText || '';
   },
-  
-  /**
-   * Truncate text
-   */
-  truncate(text, length = 100) {
-    if (!text) return '';
-    if (text.length <= length) return text;
-    return text.substr(0, length) + '...';
+
+  truncate(text, maxLength) {
+    if (!text || text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
   }
 };
 
-// Make utils globally available
 window.Utils = Utils;
-
-// Update clock every second
-setInterval(() => Utils.updateClock(), 1000);
-
-// Add CSS animation for notifications
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes slideInRight {
-    from { transform: translateX(100px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-`;
-document.head.appendChild(style);
-
 console.log('✅ Utils loaded');

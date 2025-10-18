@@ -14,6 +14,12 @@ const CONFIG = {
     PAGE_NAME: "Farhashop",
     PAGE_ACCESS_TOKEN: "EAAMAZCPO9IcwBPjpqTZBlzLzZA4zoSYwWHbE6KtfliADcDOWsYDDwZAbZA6PmHNNeG1KCNa3iGp4dPixgVrFXM1G5ytgFp2VTxZBS38ygtT8pBofjUEcd0b70OIqeGZAalFMykMhgPLFeqbIZBivXYDT4qaRHtJiUI04NyHfNVxvA1m1YLoGoZCxJ03akVo7sjb3qqQpL7YdrTLSF9elcOs62T32Vh81kuvITQoZBl6AAQgr0ZD",
   },
+
+  LANGUAGES: {
+    en: { name: 'English', dir: 'ltr' },
+    fr: { name: 'French', dir: 'ltr' },
+    ar: { name: 'Arabic', dir: 'rtl' }
+  },
   
   PROXIES: ["", "https://cors.isomorphic-git.org/", "https://corsproxy.io/?"],
   USER_LOGIN: "Zakriibrahim",
@@ -30,3 +36,6 @@ const CONFIG = {
     MAX_PRICE: 999999,
   }
 };
+
+window.CONFIG = CONFIG;
+console.log('✅ Config loaded');
