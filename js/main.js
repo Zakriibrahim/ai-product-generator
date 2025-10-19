@@ -180,6 +180,23 @@ function setupEventListeners() {
     bulkCategoriesBtn.addEventListener('click', () => BulkEdit.assignCategories());
   }
   
+  // Image optimization controls
+  const optimizationToggle = document.getElementById('optimizationToggle');
+  if (optimizationToggle && window.ImageHandler) {
+    optimizationToggle.addEventListener('change', (e) => {
+      ImageHandler.optimizationEnabled = e.target.checked;
+      const status = e.target.checked ? 'enabled' : 'disabled';
+      Utils.notify(`Image optimization ${status}`, e.target.checked ? 'success' : 'info');
+    });
+  }
+  
+  const optimizationSettingsBtn = document.getElementById('optimizationSettingsBtn');
+  if (optimizationSettingsBtn && window.ImageOptimizer) {
+    optimizationSettingsBtn.addEventListener('click', () => {
+      ImageOptimizer.showSettingsModal();
+    });
+  }
+  
   // Bulk actions bar
   const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
   if (bulkDeleteBtn && window.BulkEdit) {
@@ -302,17 +319,47 @@ async function handleBatchFiles(event, batchId) {
         preview: '',
         uploading: true,
         url: '',
-        error: false
+        error: false,
+        optimized: false
       };
       
       batch.files.push(imgObj);
       renderBatchGallery(batch);
       
-      const b64 = await ImageHandler.fileToBase64(file);
+      // Check if optimization is enabled
+      let processedFile = file;
+      if (window.ImageOptimizer && ImageHandler.optimizationEnabled) {
+        try {
+          const settings = ImageOptimizer.getSettings();
+          Utils.notify('🔄 Optimizing image...', 'info', 2000);
+          
+          const canvas = await ImageOptimizer.optimizeImage(file, settings);
+          const blob = await ImageOptimizer.canvasToBlob(
+            canvas,
+            settings.format,
+            settings.format === 'webp' ? ImageOptimizer.WEBP_QUALITY : ImageOptimizer.JPEG_QUALITY
+          );
+          
+          processedFile = new File(
+            [blob],
+            file.name.replace(/\.[^.]+$/, '.' + settings.format),
+            { type: blob.type }
+          );
+          
+          imgObj.optimized = true;
+          const savings = ((1 - blob.size / file.size) * 100).toFixed(0);
+          Utils.notify(`✓ Optimized! (-${savings}% size)`, 'success', 2000);
+        } catch (optError) {
+          console.warn('Optimization failed, using original:', optError);
+          Utils.notify('⚠️ Using original image', 'warning', 2000);
+        }
+      }
+      
+      const b64 = await ImageHandler.fileToBase64(processedFile);
       imgObj.preview = `data:image/jpeg;base64,${b64}`;
       renderBatchGallery(batch);
       
-      imgObj.url = await ImageHandler.uploadToImgbb(b64, file.name);
+      imgObj.url = await ImageHandler.uploadToImgbb(b64, processedFile.name);
       imgObj.uploading = false;
       renderBatchGallery(batch);
       
@@ -338,6 +385,7 @@ function renderBatchGallery(batch) {
     <div class="relative ${img.uploading ? 'img-uploading' : ''} ${img.error ? 'img-error' : ''}">
       <img src="${img.preview || ''}" class="img-thumb" alt="Upload ${idx}">
       ${img.uploading ? '<div class="absolute inset-0 flex items-center justify-center"><div class="spinner" style="width:30px;height:30px;border-width:3px;"></div></div>' : ''}
+      ${img.optimized && !img.uploading ? '<div class="absolute top-1 left-1 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold"><i class="fas fa-check"></i> Optimized</div>' : ''}
       <div class="delete-image-btn" onclick="removeBatchImage('${batch.id}', ${idx})">
         <i class="fas fa-times"></i>
       </div>
@@ -469,17 +517,47 @@ async function handleGroupFiles(event, groupId) {
         preview: '',
         uploading: true,
         url: '',
-        error: false
+        error: false,
+        optimized: false
       };
       
       group.files.push(imgObj);
       renderGroupGallery(group);
       
-      const b64 = await ImageHandler.fileToBase64(file);
+      // Check if optimization is enabled
+      let processedFile = file;
+      if (window.ImageOptimizer && ImageHandler.optimizationEnabled) {
+        try {
+          const settings = ImageOptimizer.getSettings();
+          Utils.notify('🔄 Optimizing image...', 'info', 2000);
+          
+          const canvas = await ImageOptimizer.optimizeImage(file, settings);
+          const blob = await ImageOptimizer.canvasToBlob(
+            canvas,
+            settings.format,
+            settings.format === 'webp' ? ImageOptimizer.WEBP_QUALITY : ImageOptimizer.JPEG_QUALITY
+          );
+          
+          processedFile = new File(
+            [blob],
+            file.name.replace(/\.[^.]+$/, '.' + settings.format),
+            { type: blob.type }
+          );
+          
+          imgObj.optimized = true;
+          const savings = ((1 - blob.size / file.size) * 100).toFixed(0);
+          Utils.notify(`✓ Optimized! (-${savings}% size)`, 'success', 2000);
+        } catch (optError) {
+          console.warn('Optimization failed, using original:', optError);
+          Utils.notify('⚠️ Using original image', 'warning', 2000);
+        }
+      }
+      
+      const b64 = await ImageHandler.fileToBase64(processedFile);
       imgObj.preview = `data:image/jpeg;base64,${b64}`;
       renderGroupGallery(group);
       
-      imgObj.url = await ImageHandler.uploadToImgbb(b64, file.name);
+      imgObj.url = await ImageHandler.uploadToImgbb(b64, processedFile.name);
       imgObj.uploading = false;
       renderGroupGallery(group);
       
@@ -506,6 +584,7 @@ function renderGroupGallery(group) {
       <img src="${img.preview || ''}" class="img-thumb" alt="Image ${idx}">
       <div class="absolute bottom-1 left-1 bg-indigo-600 text-white text-xs font-bold rounded px-1.5 py-0.5">${idx}</div>
       ${img.uploading ? '<div class="absolute inset-0 flex items-center justify-center"><div class="spinner" style="width:30px;height:30px;border-width:3px;"></div></div>' : ''}
+      ${img.optimized && !img.uploading ? '<div class="absolute top-1 right-1 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold"><i class="fas fa-check"></i></div>' : ''}
       <div class="delete-image-btn" onclick="removeGroupImage('${group.id}', ${idx})">
         <i class="fas fa-times"></i>
       </div>
