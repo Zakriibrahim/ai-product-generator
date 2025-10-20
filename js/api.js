@@ -111,3 +111,31 @@ const api = {
     return data.data.url;
   }
 };
+
+async fetchProductsFromStore() {
+  try {
+    window.uiManager.showLoading('Fetching products from WooCommerce...');
+    
+    const auth = btoa(`${CONFIG.WOOCOMMERCE.CONSUMER_KEY}:${CONFIG.WOOCOMMERCE.CONSUMER_SECRET}`);
+    const response = await fetch(
+      `${CONFIG.WOOCOMMERCE.URL}/wp-json/wc/v3/products?per_page=50`,
+      {
+        headers: {
+          'Authorization': `Basic ${auth}`
+        }
+      }
+    );
+    
+    if (!response.ok) throw new Error('Failed to fetch products');
+    
+    const products = await response.json();
+    window.state.fetchedProducts = products;
+    window.uiManager.renderFetchedProducts();
+    window.uiManager.updateCounts();
+    window.uiManager.hideError();
+  } catch (error) {
+    window.uiManager.showError('Failed to fetch products: ' + error.message);
+  }
+  
+  window.uiManager.hideLoading();
+}

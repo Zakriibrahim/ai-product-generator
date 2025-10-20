@@ -1,305 +1,395 @@
-// Main Application
-document.addEventListener('DOMContentLoaded', async () => {
-  // Initialize
-  await initializeApp();
-  setupEventListeners();
+// Initialize application state
+let currentUploadMode = CONFIG.UPLOAD_MODE.SINGLE;
+
+document.addEventListener('DOMContentLoaded', () => {
+  initializeApp();
 });
 
-async function initializeApp() {
-  uiManager.showLoading('Chargement des produits...');
+function initializeApp() {
+  setupTabNavigation();
+  setupUploadMode();
+  setupImageUpload();
+  setupActionButtons();
+  setupBulkActions();
+  setupSearch();
   
-  try {
-    // Fetch store products on startup
-    const products = await api.fetchWooProducts();
-    setFetchedProducts(products);
-    
-    // Fetch categories
-    const categories = await api.fetchWooCategories();
-    state.storeCategories = categories;
-    
-    uiManager.renderFetchedProducts();
-    uiManager.hideError();
-  } catch (e) {
-    uiManager.showError('Erreur lors du chargement: ' + e.message);
-  }
-  
-  uiManager.hideLoading();
+  console.log('✅ AI Product Generator initialized');
 }
 
-function setupEventListeners() {
-  // Tab switching
-  document.querySelectorAll('.tab-btn').forEach(btn => {
+// Tab Navigation
+function setupTabNavigation() {
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  tabButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      uiManager.switchTab(btn.dataset.tab);
+      const tabId = btn.dataset.tab;
+
+      tabButtons.forEach(b => b.classList.remove('active'));
+      tabContents.forEach(c => c.classList.remove('active'));
+
+      btn.classList.add('active');
+      document.getElementById(`tab-${tabId}`).classList.add('active');
     });
   });
+}
 
-  // Image upload
-  const imageUpload = document.getElementById('imageUpload');
-  const dropzone = document.getElementById('dropzone');
+// Upload Mode Toggle
+function setupUploadMode() {
+  const singleBtn = document.getElementById('singleProductBtn');
+  const groupBtn = document.getElementById('groupProductBtn');
+  const singleSection = document.getElementById('singleProductSection');
+  const groupSection = document.getElementById('groupProductSection');
+  const modeIndicator = document.getElementById('currentMode');
 
-  imageUpload.addEventListener('change', handleImageUpload);
-  
-  dropzone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropzone.classList.add('drag-over');
+  singleBtn.addEventListener('click', () => {
+    currentUploadMode = CONFIG.UPLOAD_MODE.SINGLE;
+    singleSection.style.display = 'block';
+    groupSection.style.display = 'none';
+    modeIndicator.textContent = 'Single Product';
+    singleBtn.classList.add('btn-green');
+    groupBtn.classList.remove('btn-orange');
   });
-  
-  dropzone.addEventListener('dragleave', () => {
-    dropzone.classList.remove('drag-over');
+
+  groupBtn.addEventListener('click', () => {
+    currentUploadMode = CONFIG.UPLOAD_MODE.GROUP;
+    singleSection.style.display = 'none';
+    groupSection.style.display = 'block';
+    modeIndicator.textContent = 'Group Product';
+    groupBtn.classList.add('btn-orange');
+    singleBtn.classList.remove('btn-green');
   });
-  
-  dropzone.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    dropzone.classList.remove('drag-over');
-    await handleImageUpload({ target: { files: e.dataTransfer.files } });
-  });
+}
+
+// Image Upload
+function setupImageUpload() {
+  // Single mode
+  const uploadSingle = document.getElementById('imageUploadSingle');
+  const dropzoneSingle = document.getElementById('dropzoneSingle');
+
+  uploadSingle.addEventListener('change', (e) => handleImageSelect(e, 'single'));
+  setupDropzone(dropzoneSingle, uploadSingle);
+
+  // Group mode
+  const uploadGroup = document.getElementById('imageUploadGroup');
+  const dropzoneGroup = document.getElementById('dropzoneGroup');
+
+  uploadGroup.addEventListener('change', (e) => handleImageSelect(e, 'group'));
+  setupDropzone(dropzoneGroup, uploadGroup);
 
   // Generate button
-  document.getElementById('generateBtn').addEventListener('click', handleGenerate);
+  document.getElementById('generateBtn').addEventListener('click', generateProducts);
+}
 
-  // Search
-  document.getElementById('searchFetched').addEventListener('input', (e) => {
-    uiManager.renderFetchedProducts(e.target.value);
+function setupDropzone(dropzone, input) {
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, preventDefaults, false);
   });
 
-  // Refresh store
-  document.getElementById('refreshStoreBtn').addEventListener('click', initializeApp);
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropzone.addEventListener(eventName, () => dropzone.classList.add('drag-over'));
+  });
 
-  // Bulk actions
-  document.getElementById('fetchedBulkDelete').addEventListener('click', handleBulkDeleteFetched);
-  document.getElementById('resultsBulkCategory').addEventListener('click', () => productManager.bulkAssignCategory());
-  document.getElementById('resultsBulkPrice').addEventListener('click', () => productManager.bulkChangePrice());
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, () => dropzone.classList.remove('drag-over'));
+  });
 
-  // Upload to WooCommerce
-  document.getElementById('uploadWooBtn').addEventListener('click', () => productManager.bulkUploadToWoo());
+  dropzone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer.files;
+    input.files = files;
+    handleImageSelect({ target: input }, dropzone.id.includes('Single') ? 'single' : 'group');
+  });
+}
 
-  // Post to Facebook
-  document.getElementById('postFacebookBtn').addEventListener('click', () => facebookManager.bulkPostToFacebook());
+function preventDefaults(e) {
+  e.preventDefault();
+  e.stopPropagation();
+}
 
-  // Session management
-  document.getElementById('saveSessionBtn').addEventListener('click', handleSaveSession);
+async function handleImageSelect(event, mode) {
+  const files = Array.from(event.target.files);
+  const galleryId = mode === 'single' ? 'imageGallerySingle' : 'imageGalleryGroup';
+  const gallery = document.getElementById(galleryId);
+
+  gallery.innerHTML = '';
+
+  for (const file of files) {
+    const preview = await createImagePreview(file);
+    gallery.appendChild(preview);
+  }
+
+  document.getElementById('generateBtn').disabled = files.length === 0;
+}
+
+async function createImagePreview(file) {
+  const div = document.createElement('div');
+  div.className = 'image-preview';
+
+  const img = document.createElement('img');
+  img.src = URL.createObjectURL(file);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'remove-btn';
+  removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+  removeBtn.onclick = () => div.remove();
+
+  div.appendChild(img);
+  div.appendChild(removeBtn);
+
+  return div;
+}
+
+async function generateProducts() {
+  const mode = currentUploadMode;
+  const inputId = mode === 'single' ? 'imageUploadSingle' : 'imageUploadGroup';
+  const files = Array.from(document.getElementById(inputId).files);
+
+  if (files.length === 0) return;
+
+  window.uiManager.showLoading('Generating product data...');
+
+  try {
+    let products = [];
+
+    if (mode === CONFIG.UPLOAD_MODE.SINGLE) {
+      // Each image = 1 product
+      for (let i = 0; i < files.length; i++) {
+        window.uiManager.updateProgress(i + 1, files.length);
+        const productData = await window.api.analyzeImage(files[i]);
+        products.push(productData);
+      }
+    } else {
+      // All images = 1 product
+      const productData = await window.api.analyzeMultipleImages(files);
+      products.push(productData);
+    }
+
+    window.state.addProducts(products);
+    window.uiManager.renderResults();
+    
+    // Switch to results tab
+    document.querySelector('[data-tab="results"]').click();
+
+    window.uiManager.hideLoading();
+    alert(`✅ Generated ${products.length} product(s)!`);
+
+  } catch (error) {
+    window.uiManager.hideLoading();
+    window.uiManager.showError(error.message);
+  }
+}
+
+// Action Buttons
+function setupActionButtons() {
+  document.getElementById('uploadWooBtn').addEventListener('click', uploadToWooCommerce);
+  document.getElementById('postSocialBtn').addEventListener('click', postToSocial);
+  document.getElementById('saveSessionBtn').addEventListener('click', saveSession);
   document.getElementById('loadSessionBtn').addEventListener('click', () => {
     document.getElementById('loadSessionFile').click();
   });
-  document.getElementById('loadSessionFile').addEventListener('change', handleLoadSession);
-
-  // Modal close
-  document.getElementById('modalBg').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('modalBg')) {
-      uiManager.closeModal();
-    }
-  });
+  document.getElementById('loadSessionFile').addEventListener('change', loadSession);
+  document.getElementById('refreshStoreBtn').addEventListener('click', refreshStore);
 }
 
-async function handleImageUpload(event) {
-  const files = Array.from(event.target.files);
-  if (files.length === 0) return;
-
-  uiManager.showLoading('Traitement des images...');
-
-  for (const file of files) {
-    try {
-      // Process image
-      const imageData = await imageProcessor.processImage(file);
-      addUploadedImage(imageData);
-      uiManager.renderImageGallery();
-
-      // Upload to ImgBB
-      imageData.uploading = true;
-      uiManager.renderImageGallery();
-      
-      imageData.url = await api.uploadToImgBB(imageData.base64, file.name);
-      imageData.uploading = false;
-      uiManager.renderImageGallery();
-      
-    } catch (e) {
-      uiManager.showError('Erreur upload image: ' + e.message);
-    }
+async function uploadToWooCommerce() {
+  const products = window.state.getSelectedProducts('results');
+  if (products.length === 0) {
+    alert('Please select products to upload');
+    return;
   }
 
-  uiManager.hideLoading();
-  event.target.value = '';
+  await window.api.uploadToWooCommerce(products);
 }
 
-async function handleGenerate() {
-  if (state.uploadedImages.length === 0) return;
-
-  uiManager.showLoading('Génération des données produits...');
-  uiManager.switchTab('results');
-
-  const total = state.uploadedImages.length;
-  
-  for (let i = 0; i < total; i++) {
-    try {
-      uiManager.showProgress(i + 1, total);
-      const productData = await productManager.generateProductData(state.uploadedImages[i]);
-      addGeneratedProduct(productData);
-      uiManager.renderResults();
-    } catch (e) {
-      console.error('Generation failed:', e);
-      uiManager.showError(`Erreur produit ${i + 1}: ${e.message}`);
-    }
+async function postToSocial() {
+  const products = window.state.getSelectedProducts('results');
+  if (products.length === 0) {
+    alert('Please select products to post');
+    return;
   }
 
-  uiManager.hideLoading();
-  
-  // Clear uploaded images after generation
-  state.uploadedImages = [];
-  uiManager.renderImageGallery();
+  await window.socialWebhook.showPlatformSelection(products);
 }
 
-async function handleBulkDeleteFetched() {
-  if (!confirm(`Supprimer ${state.selectedFetched.size} produit(s)?`)) return;
-
-  uiManager.showLoading('Suppression...');
-
-  for (const productId of state.selectedFetched) {
-    try {
-      await api.deleteWooProduct(productId);
-    } catch (e) {
-      console.error('Delete failed:', e);
-    }
-  }
-
-  clearSelections();
-  await initializeApp();
-  uiManager.hideLoading();
-}
-
-function handleSaveSession() {
-  const session = {
-    generatedProducts: state.generatedProducts,
-    storeCategories: state.storeCategories,
+function saveSession() {
+  const data = {
+    products: window.state.products,
+    fetchedProducts: window.state.fetchedProducts,
     timestamp: new Date().toISOString()
   };
 
-  const blob = new Blob([JSON.stringify(session, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `ai-products-session-${Date.now()}.json`;
+  a.download = `session-${Date.now()}.json`;
   a.click();
-  URL.revokeObjectURL(url);
 }
 
-function handleLoadSession(event) {
+function loadSession(event) {
   const file = event.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const session = JSON.parse(e.target.result);
-      state.generatedProducts = session.generatedProducts || [];
-      state.storeCategories = session.storeCategories || state.storeCategories;
-      uiManager.renderResults();
-      updateUI();
-      alert('Session chargée avec succès!');
-    } catch (e) {
-      uiManager.showError('Erreur chargement session: ' + e.message);
+      const data = JSON.parse(e.target.result);
+      window.state.products = data.products || [];
+      window.state.fetchedProducts = data.fetchedProducts || [];
+      window.uiManager.renderResults();
+      window.uiManager.renderFetchedProducts();
+      alert('✅ Session loaded successfully!');
+    } catch (error) {
+      alert('❌ Error loading session');
     }
   };
   reader.readAsText(file);
-  event.target.value = '';
 }
 
-// Global handlers for inline events
-window.handleRemoveImage = (index) => {
-  removeUploadedImage(index);
-  uiManager.renderImageGallery();
-};
+async function refreshStore() {
+  await window.api.fetchProductsFromStore();
+}
 
-window.handleToggleFetched = (productId) => {
-  toggleFetchedSelection(productId);
-  uiManager.renderFetchedProducts();
-};
+// Bulk Actions
+function setupBulkActions() {
+  // Fetched products bulk actions
+  document.getElementById('fetchedBulkEdit').addEventListener('click', () => bulkEdit('fetched'));
+  document.getElementById('fetchedBulkCategory').addEventListener('click', () => bulkAssignCategories('fetched'));
+  document.getElementById('fetchedBulkSocial').addEventListener('click', () => bulkPostSocial('fetched'));
+  document.getElementById('fetchedBulkUpdate').addEventListener('click', () => bulkUpdateStore('fetched'));
+  document.getElementById('fetchedBulkRegenerate').addEventListener('click', () => bulkRegenerate('fetched'));
+  document.getElementById('fetchedBulkDelete').addEventListener('click', () => bulkDelete('fetched'));
 
-window.handleToggleResult = (index) => {
-  toggleResultSelection(index);
-  uiManager.renderResults();
-};
+  // Results bulk actions
+  document.getElementById('resultsBulkEdit').addEventListener('click', () => bulkEdit('results'));
+  document.getElementById('resultsBulkCategory').addEventListener('click', () => bulkAssignCategories('results'));
+  document.getElementById('resultsBulkRegenerate').addEventListener('click', () => bulkRegenerate('results'));
+  document.getElementById('resultsBulkDelete').addEventListener('click', () => bulkDelete('results'));
+}
 
-window.handleCategoryChange = (index, categoryId) => {
-  state.generatedProducts[index].category_id = parseInt(categoryId);
-};
-
-window.handleEditProduct = (index) => {
-  const product = state.generatedProducts[index];
-  
-  const modalContent = `
-    <div class="modal-close" onclick="uiManager.closeModal()">
-      <i class="fas fa-times"></i>
-    </div>
-    <div class="modal-title">Modifier le produit</div>
-    
-    <div class="modal-section">
-      <label class="modal-label">Titre</label>
-      <input type="text" class="modal-input" id="editTitle" value="${product.title}">
-    </div>
-    
-    <div class="modal-section">
-      <label class="modal-label">Description courte</label>
-      <textarea class="modal-textarea" id="editShort">${product.short_description}</textarea>
-    </div>
-    
-    <div class="modal-section">
-      <label class="modal-label">Description</label>
-      <textarea class="modal-textarea" id="editDesc">${product.description}</textarea>
-    </div>
-    
-    <div class="modal-section">
-      <label class="modal-label">Prix (MAD)</label>
-      <input type="text" class="modal-input" id="editPrice" value="${product.price}">
-    </div>
-    
-    <div class="modal-section">
-      <label class="modal-label">Tags (séparés par virgule)</label>
-      <input type="text" class="modal-input" id="editTags" value="${product.tags.join(', ')}">
-    </div>
-    
-    <div class="flex gap-3 mt-6">
-      <button class="btn btn-green" onclick="saveProductEdit(${index})">
-        <i class="fas fa-save"></i> Sauvegarder
-      </button>
-      <button class="btn btn-gray" onclick="uiManager.closeModal()">
-        Annuler
-      </button>
-    </div>
-  `;
-  
-  uiManager.openModal(modalContent);
-};
-
-window.saveProductEdit = (index) => {
-  const product = state.generatedProducts[index];
-  
-  product.title = document.getElementById('editTitle').value;
-  product.short_description = document.getElementById('editShort').value;
-  product.description = document.getElementById('editDesc').value;
-  product.price = document.getElementById('editPrice').value;
-  product.tags = document.getElementById('editTags').value.split(',').map(t => t.trim());
-  
-  updateGeneratedProduct(index, product);
-  uiManager.renderResults();
-  uiManager.closeModal();
-};
-
-window.handleRegenerateProduct = async (index) => {
-  uiManager.showLoading('Régénération...');
-  
-  try {
-    const imageData = {
-      base64: state.generatedProducts[index].base64Images[0],
-      url: state.generatedProducts[index].images[0]
-    };
-    
-    const newData = await productManager.generateProductData(imageData);
-    updateGeneratedProduct(index, newData);
-    uiManager.renderResults();
-  } catch (e) {
-    uiManager.showError('Erreur régénération: ' + e.message);
+function bulkEdit(tab) {
+  const products = window.state.getSelectedProducts(tab);
+  if (products.length === 0) {
+    alert('Please select products to edit');
+    return;
   }
+  // Implement edit functionality
+  alert(`Editing ${products.length} products...`);
+}
+
+async function bulkAssignCategories(tab) {
+  const products = window.state.getSelectedProducts(tab);
+  if (products.length === 0) {
+    alert('Please select products to assign categories');
+    return;
+  }
+
+  await window.categoryModal.show(products);
+}
+
+async function bulkPostSocial(tab) {
+  const products = window.state.getSelectedProducts(tab);
+  if (products.length === 0) {
+    alert('Please select products to post');
+    return;
+  }
+
+  await window.socialWebhook.showPlatformSelection(products);
+}
+
+async function bulkUpdateStore(tab) {
+  const products = window.state.getSelectedProducts(tab);
+  if (products.length === 0) {
+    alert('Please select products to update');
+    return;
+  }
+
+  await window.api.updateProductsInStore(products);
+}
+
+async function bulkRegenerate(tab) {
+  const products = window.state.getSelectedProducts(tab);
+  if (products.length === 0) {
+    alert('Please select products to regenerate');
+    return;
+  }
+
+  // Implement regenerate functionality
+  alert(`Regenerating ${products.length} products...`);
+}
+
+function bulkDelete(tab) {
+  const products = window.state.getSelectedProducts(tab);
+  if (products.length === 0) {
+    alert('Please select products to delete');
+    return;
+  }
+
+  if (!confirm(`Delete ${products.length} product(s)?`)) return;
+
+  products.forEach(p => {
+    if (tab === 'fetched') {
+      window.state.removeFetchedProduct(p.id);
+    } else {
+      window.state.removeProduct(p.id);
+    }
+  });
+
+  if (tab === 'fetched') {
+    window.uiManager.renderFetchedProducts();
+  } else {
+    window.uiManager.renderResults();
+  }
+}
+
+// Search
+function setupSearch() {
+  document.getElementById('searchFetched').addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase();
+    filterProducts('fetched', query);
+  });
+}
+
+function filterProducts(tab, query) {
+  const cards = document.querySelectorAll(`#${tab}ProductsList .product-card`);
+  cards.forEach(card => {
+    const title = card.querySelector('h3').textContent.toLowerCase();
+    card.style.display = title.includes(query) ? 'block' : 'none';
+  });
+}
+
+/* =========================
+   Theme Toggle
+   ========================= */
+function toggleTheme() {
+  const html = document.documentElement;
+  const icon = document.getElementById('themeIcon');
+  const currentTheme = html.getAttribute('data-theme');
   
-  uiManager.hideLoading();
-};
+  if (currentTheme === 'dark') {
+    html.removeAttribute('data-theme');
+    icon.className = 'fas fa-moon';
+    localStorage.setItem('theme', 'light');
+  } else {
+    html.setAttribute('data-theme', 'dark');
+    icon.className = 'fas fa-sun';
+    localStorage.setItem('theme', 'dark');
+  }
+}
+
+// Load saved theme on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.className = 'fas fa-sun';
+  }
+});
+
+window.toggleTheme = toggleTheme;
+
+// Refresh Store Products
+document.getElementById('refreshStoreBtn').addEventListener('click', () => {
+  window.api.fetchProductsFromStore();
+});

@@ -1,169 +1,122 @@
-// UI Management
-const uiManager = {
-  showLoading(message = "Chargement...") {
-    document.getElementById('loadingMessage').textContent = message;
-    document.getElementById('loading').classList.remove('hidden');
-    document.getElementById('progressBarContainer').classList.add('hidden');
-  },
+class UIManager {
+  constructor() {
+    this.loadingDiv = document.getElementById('loading');
+    this.loadingMessage = document.getElementById('loadingMessage');
+    this.progressBarContainer = document.getElementById('progressBarContainer');
+    this.progressFill = document.getElementById('progressFill');
+    this.progressText = document.getElementById('progressText');
+    this.errorDiv = document.getElementById('error');
+    this.errorText = document.getElementById('errorText');
+  }
+
+  showLoading(message = "Loading...") {
+    this.loadingMessage.textContent = message;
+    this.loadingDiv.classList.remove('hidden');
+  }
 
   hideLoading() {
-    document.getElementById('loading').classList.add('hidden');
-  },
+    this.loadingDiv.classList.add('hidden');
+    this.progressBarContainer.classList.add('hidden');
+  }
 
-  showProgress(current, total) {
-    const container = document.getElementById('progressBarContainer');
-    const fill = document.getElementById('progressFill');
-    const text = document.getElementById('progressText');
-    
-    container.classList.remove('hidden');
-    const percent = Math.round((current / total) * 100);
-    fill.style.width = `${percent}%`;
-    text.textContent = `${current} / ${total}`;
-  },
+  updateProgress(current, total) {
+    this.progressBarContainer.classList.remove('hidden');
+    const percentage = Math.round((current / total) * 100);
+    this.progressFill.style.width = `${percentage}%`;
+    this.progressText.textContent = `${current} / ${total}`;
+  }
 
   showError(message) {
-    document.getElementById('errorText').textContent = message;
-    document.getElementById('error').classList.remove('hidden');
-  },
+    this.errorText.textContent = message;
+    this.errorDiv.classList.remove('hidden');
+  }
 
   hideError() {
-    document.getElementById('error').classList.add('hidden');
-  },
-
-  switchTab(tabName) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.classList.remove('active');
-      if (btn.dataset.tab === tabName) {
-        btn.classList.add('active');
-      }
-    });
-
-    // Update tab content
-    document.querySelectorAll('.tab-content').forEach(content => {
-      content.classList.remove('active');
-    });
-    document.getElementById(`tab-${tabName}`).classList.add('active');
-    
-    state.currentTab = tabName;
-  },
-
-  renderImageGallery() {
-    const gallery = document.getElementById('imageGallery');
-    
-    if (state.uploadedImages.length === 0) {
-      gallery.innerHTML = '';
-      return;
-    }
-
-    gallery.innerHTML = state.uploadedImages.map((img, index) => `
-      <div class="image-item ${img.uploading ? 'uploading' : ''}">
-        <img src="${img.preview}" alt="Upload ${index + 1}">
-        ${img.uploading ? '<div class="status-badge">Uploading...</div>' : ''}
-        ${img.optimized && !img.uploading ? '<div class="status-badge">Optimized</div>' : ''}
-        <button class="delete-btn" onclick="handleRemoveImage(${index})">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    `).join('');
-  },
-
-  renderFetchedProducts(searchTerm = '') {
-    const container = document.getElementById('fetchedProductsList');
-    
-    let products = state.fetchedProducts;
-    if (searchTerm) {
-      products = products.filter(p => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (products.length === 0) {
-      container.innerHTML = '<div class="empty-state"><p>Aucun produit trouvé</p></div>';
-      return;
-    }
-
-    container.innerHTML = products.map(product => `
-      <div class="product-card ${state.selectedFetched.has(product.id) ? 'selected' : ''}" 
-           onclick="handleToggleFetched(${product.id})">
-        <img src="${product.images[0]?.src || 'https://via.placeholder.com/200'}" alt="${product.name}">
-        <div class="product-title">${product.name}</div>
-        <div class="product-price">${product.price} MAD</div>
-      </div>
-    `).join('');
-  },
+    this.errorDiv.classList.add('hidden');
+  }
 
   renderResults() {
-    const container = document.getElementById('resultsList');
+    const contentDiv = document.getElementById('resultsList');
     const emptyState = document.getElementById('emptyState');
-
-    if (state.generatedProducts.length === 0) {
-      container.innerHTML = '';
+    
+    if (window.state.products.length === 0) {
+      contentDiv.style.display = 'none';
       emptyState.style.display = 'block';
       return;
     }
-
-    emptyState.style.display = 'none';
-    container.innerHTML = state.generatedProducts.map((product, index) => this.renderProductCard(product, index)).join('');
-  },
-
-  renderProductCard(product, index) {
-    const isSelected = state.selectedResults.has(index);
     
-    return `
-      <div class="product-card ${isSelected ? 'selected' : ''}" data-index="${index}">
-        <div class="flex gap-4">
-          <input type="checkbox" 
-                 class="w-5 h-5 accent-indigo-600" 
-                 ${isSelected ? 'checked' : ''}
-                 onchange="handleToggleResult(${index})">
-          
-          <div class="flex-1">
-            <img src="${product.images[0]}" alt="${product.title}" class="w-32 h-32 object-cover rounded-lg mb-3">
-            
-            <h3 class="text-xl font-bold text-indigo-700 mb-2">${product.title}</h3>
-            
-            <div class="space-y-2 text-sm">
-              <div><strong>Prix:</strong> <span class="text-green-600 text-lg font-bold">${product.price} MAD</span></div>
-              <div><strong>Description courte:</strong> ${product.short_description}</div>
-              <div><strong>Description:</strong> ${product.description}</div>
-              <div><strong>Tags:</strong> ${product.tags.join(', ')}</div>
-              <div><strong>Catégorie suggérée:</strong> ${product.suggested_category}</div>
-              <div><strong>Catégories du store:</strong> 
-                <select class="modal-input" onchange="handleCategoryChange(${index}, this.value)">
-                  <option value="">Sélectionner...</option>
-                  ${state.storeCategories.map(cat => `
-                    <option value="${cat.id}" ${product.category_id === cat.id ? 'selected' : ''}>
-                      ${cat.name}
-                    </option>
-                  `).join('')}
-                </select>
-              </div>
-            </div>
+    contentDiv.style.display = 'block';
+    emptyState.style.display = 'none';
+    contentDiv.innerHTML = '';
+    
+    window.state.products.forEach((product, index) => {
+      const card = this.createProductCard(product, index);
+      contentDiv.appendChild(card);
+    });
+  }
 
-            <div class="mt-4 flex gap-2">
-              <button class="btn btn-blue" onclick="handleEditProduct(${index})">
-                <i class="fas fa-edit"></i> Edit
-              </button>
-              <button class="btn btn-yellow" onclick="handleRegenerateProduct(${index})">
-                <i class="fas fa-sync"></i> Regenerate
-              </button>
-            </div>
+  createProductCard(product, index) {
+    const card = document.createElement('div');
+    card.className = 'product-card fade-in';
+    card.innerHTML = `
+      <div class="flex gap-4">
+        <img src="${product.galleryImageUrls[0]}" class="w-32 h-32 object-cover rounded-lg" alt="${product.title}">
+        <div class="flex-1">
+          <h3 class="font-bold text-xl mb-2">${product.title}</h3>
+          <p class="text-sm text-zinc-600 mb-2">${product.short_description || ''}</p>
+          <p class="text-green-600 font-bold text-xl mb-3">${product.price} MAD</p>
+          <div class="flex gap-2">
+            <button class="btn btn-blue text-sm" onclick="window.productManager.editProduct(${index})">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <button class="btn btn-gray text-sm" onclick="window.productManager.deleteProduct(${index})">
+              <i class="fas fa-trash"></i> Delete
+            </button>
           </div>
         </div>
       </div>
     `;
-  },
-
-  openModal(content) {
-    document.getElementById('modalCard').innerHTML = content;
-    document.getElementById('modalBg').style.display = 'flex';
-  },
-
-  closeModal() {
-    document.getElementById('modalBg').style.display = 'none';
+    return card;
   }
-};
 
-// Attach to window for inline handlers
-window.uiManager = uiManager;
+  renderFetchedProducts() {
+    const container = document.getElementById('fetchedProductsList');
+    const emptyState = document.getElementById('fetchedEmptyState');
+    
+    if (window.state.fetchedProducts.length === 0) {
+      container.style.display = 'none';
+      emptyState.style.display = 'block';
+      return;
+    }
+    
+    container.style.display = 'grid';
+    emptyState.style.display = 'none';
+    container.innerHTML = '';
+    
+    window.state.fetchedProducts.forEach(product => {
+      const card = document.createElement('div');
+      card.className = 'product-card';
+      card.innerHTML = `
+        <img src="${product.images[0]?.src || ''}" class="w-full h-48 object-cover rounded-lg mb-3" alt="${product.name}">
+        <h3 class="font-bold text-lg mb-2">${product.name}</h3>
+        <p class="text-green-600 font-bold text-xl mb-3">${product.price} MAD</p>
+        <div class="flex gap-2">
+          <button class="btn btn-blue text-sm flex-1" onclick="window.productManager.editFetchedProduct(${product.id})">
+            <i class="fas fa-edit"></i> Edit
+          </button>
+          <button class="btn btn-gray text-sm flex-1" onclick="window.productManager.deleteFetchedProduct(${product.id})">
+            <i class="fas fa-trash"></i> Delete
+          </button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  updateCounts() {
+    document.getElementById('fetchedCount').textContent = window.state.fetchedProducts.length;
+    document.getElementById('resultsCount').textContent = window.state.products.length;
+  }
+}
+
+window.uiManager = new UIManager();

@@ -27,8 +27,14 @@
       <button id="uploadWooBtn" class="btn btn-purple" disabled>
         <i class="fas fa-upload"></i> Upload to WooCommerce
       </button>
-      <button id="postFacebookBtn" class="btn btn-blue" disabled>
-        <i class="fab fa-facebook"></i> Post to Facebook
+      <button id="postSocialBtn" class="btn btn-blue" disabled>
+        <i class="fas fa-share-alt"></i> Post to Social Media
+      </button>
+      <button id="singleProductBtn" class="btn btn-green">
+        <i class="fas fa-image"></i> 1 Image = 1 Product
+      </button>
+      <button id="groupProductBtn" class="btn btn-orange">
+        <i class="fas fa-images"></i> Group Images = 1 Product
       </button>
       <button id="saveSessionBtn" class="btn btn-gray">
         <i class="fas fa-save"></i> Save Session
@@ -82,22 +88,50 @@
       <div class="bg-white rounded-xl shadow-lg p-6">
         <h2 class="text-2xl font-bold text-indigo-700 mb-4">
           <i class="fas fa-images"></i> Upload Images
+          <span id="uploadModeIndicator" class="text-sm font-normal text-zinc-500 ml-3">
+            (Mode: <span id="currentMode" class="font-semibold text-indigo-600">Single Product</span>)
+          </span>
         </h2>
         
-        <div class="dropzone-area" id="dropzone">
-          <i class="fas fa-cloud-upload-alt text-5xl text-indigo-400 mb-3"></i>
-          <input type="file" id="imageUpload" accept="image/*" multiple class="hidden">
-          <label for="imageUpload" class="cursor-pointer">
-            <div class="text-lg font-semibold text-indigo-600 mb-2">
-              Cliquez ou glissez-déposez des images
-            </div>
-            <div class="text-sm text-zinc-400">
-              Les images seront optimisées automatiquement
-            </div>
-          </label>
+        <!-- Single Product Section -->
+        <div id="singleProductSection" class="mb-8">
+          <h3 class="text-xl font-semibold text-zinc-700 mb-4 flex items-center gap-2">
+            <i class="fas fa-image text-green-500"></i> 1 Image = 1 Product
+          </h3>
+          <div class="dropzone-area" id="dropzoneSingle">
+            <i class="fas fa-cloud-upload-alt text-5xl text-indigo-400 mb-3"></i>
+            <input type="file" id="imageUploadSingle" accept="image/*" multiple class="hidden">
+            <label for="imageUploadSingle" class="cursor-pointer">
+              <div class="text-lg font-semibold text-indigo-600 mb-2">
+                Cliquez ou glissez-déposez des images
+              </div>
+              <div class="text-sm text-zinc-400">
+                Chaque image = 1 produit séparé
+              </div>
+            </label>
+          </div>
+          <div id="imageGallerySingle" class="image-gallery mt-6"></div>
         </div>
 
-        <div id="imageGallery" class="image-gallery mt-6"></div>
+        <!-- Group Product Section -->
+        <div id="groupProductSection" class="mb-8" style="display:none;">
+          <h3 class="text-xl font-semibold text-zinc-700 mb-4 flex items-center gap-2">
+            <i class="fas fa-images text-orange-500"></i> Group Images = 1 Product
+          </h3>
+          <div class="dropzone-area" id="dropzoneGroup">
+            <i class="fas fa-cloud-upload-alt text-5xl text-orange-400 mb-3"></i>
+            <input type="file" id="imageUploadGroup" accept="image/*" multiple class="hidden">
+            <label for="imageUploadGroup" class="cursor-pointer">
+              <div class="text-lg font-semibold text-orange-600 mb-2">
+                Cliquez ou glissez-déposez des images
+              </div>
+              <div class="text-sm text-zinc-400">
+                Toutes les images = 1 seul produit
+              </div>
+            </label>
+          </div>
+          <div id="imageGalleryGroup" class="image-gallery mt-6"></div>
+        </div>
 
         <div class="mt-6 text-center">
           <button id="generateBtn" class="btn btn-indigo text-lg px-8 py-4" disabled>
@@ -119,22 +153,40 @@
           </button>
         </div>
 
-        <div class="mb-4">
-          <input 
-            type="text" 
-            id="searchFetched" 
-            placeholder="Rechercher un produit..." 
-            class="search-input"
-          >
-        </div>
+        <!-- Sticky Search and Buttons -->
+        <div id="fetchedStickyBar" class="sticky-action-bar">
+          <div class="mb-4">
+            <input 
+              type="text" 
+              id="searchFetched" 
+              placeholder="Rechercher un produit..." 
+              class="search-input"
+            >
+          </div>
 
-        <div class="bulk-actions mb-4 hidden" id="fetchedBulkActions">
-          <span class="font-bold">
-            <span id="fetchedSelectedCount">0</span> sélectionné(s)
-          </span>
-          <button id="fetchedBulkDelete" class="btn btn-pink">
-            <i class="fas fa-trash"></i> Delete Selected
-          </button>
+          <div class="bulk-actions mb-4 hidden" id="fetchedBulkActions">
+            <span class="font-bold">
+              <span id="fetchedSelectedCount">0</span> sélectionné(s)
+            </span>
+            <button id="fetchedBulkEdit" class="btn btn-blue">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <button id="fetchedBulkCategory" class="btn btn-green">
+              <i class="fas fa-folder"></i> Assign Categories
+            </button>
+            <button id="fetchedBulkSocial" class="btn btn-indigo">
+              <i class="fas fa-share-alt"></i> Post to Social
+            </button>
+            <button id="fetchedBulkUpdate" class="btn btn-yellow">
+              <i class="fas fa-sync-alt"></i> Update in Store
+            </button>
+            <button id="fetchedBulkRegenerate" class="btn btn-orange">
+              <i class="fas fa-redo"></i> Regenerate
+            </button>
+            <button id="fetchedBulkDelete" class="btn btn-pink">
+              <i class="fas fa-trash"></i> Delete
+            </button>
+          </div>
         </div>
 
         <div id="fetchedProductsList" class="products-grid"></div>
@@ -148,16 +200,25 @@
           <i class="fas fa-list"></i> Generated Products
         </h2>
 
-        <div class="bulk-actions mb-4 hidden" id="resultsBulkActions">
-          <span class="font-bold">
-            <span id="resultsSelectedCount">0</span> sélectionné(s)
-          </span>
-          <button id="resultsBulkCategory" class="btn btn-green">
-            <i class="fas fa-folder"></i> Assign Category
-          </button>
-          <button id="resultsBulkPrice" class="btn btn-yellow">
-            <i class="fas fa-dollar-sign"></i> Change Price
-          </button>
+        <!-- Sticky Buttons -->
+        <div id="resultsStickyBar" class="sticky-action-bar">
+          <div class="bulk-actions mb-4 hidden" id="resultsBulkActions">
+            <span class="font-bold">
+              <span id="resultsSelectedCount">0</span> sélectionné(s)
+            </span>
+            <button id="resultsBulkEdit" class="btn btn-blue">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <button id="resultsBulkCategory" class="btn btn-green">
+              <i class="fas fa-folder"></i> Assign Categories
+            </button>
+            <button id="resultsBulkRegenerate" class="btn btn-orange">
+              <i class="fas fa-redo"></i> Regenerate
+            </button>
+            <button id="resultsBulkDelete" class="btn btn-pink">
+              <i class="fas fa-trash"></i> Delete
+            </button>
+          </div>
         </div>
 
         <div id="resultsList" class="space-y-6"></div>
@@ -175,6 +236,25 @@
     </div>
   </div>
 
+  <!-- Category Modal -->
+  <div id="categoryModal" class="modal-bg" style="display:none;">
+    <div class="modal-card max-w-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold text-indigo-700">
+          <i class="fas fa-folder-tree"></i> Select Categories
+        </h3>
+        <button onclick="window.categoryModal.close()" class="text-zinc-400 hover:text-zinc-600">
+          <i class="fas fa-times text-2xl"></i>
+        </button>
+      </div>
+      <div id="categoryTree" class="max-h-96 overflow-y-auto"></div>
+      <div class="mt-4 flex gap-3 justify-end">
+        <button onclick="window.categoryModal.close()" class="btn btn-gray">Cancel</button>
+        <button onclick="window.categoryModal.apply()" class="btn btn-green">Apply</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal -->
   <div id="modalBg" class="modal-bg" style="display:none;">
     <div id="modalCard" class="modal-card"></div>
@@ -186,7 +266,11 @@
   <script src="js/image-processor.js"></script>
   <script src="js/ui-manager.js"></script>
   <script src="js/product-manager.js"></script>
-  <script src="js/facebook.js"></script>
+  <script src="js/social-webhook.js"></script>
+  <script src="js/category-modal.js"></script>
   <script src="js/main.js"></script>
 </body>
+ <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+   <i class="fas fa-moon" id="themeIcon"></i>
+ </button>
 </html>

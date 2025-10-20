@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Product Generator - WooCommerce</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f9fafb;
+      --bg-tertiary: #f3f4f6;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --border-color: #e5e7eb;
+      --indigo: #6366f1;
+      --indigo-dark: #4f46e5;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1f2937;
+      --bg-secondary: #111827;
+      --bg-tertiary: #374151;
+      --text-primary: #f9fafb;
+      --text-secondary: #d1d5db;
+      --border-color: #4b5563;
+    }
+
+    body { 
+      font-family: 'Inter', sans-serif; 
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      transition: background 0.3s, color 0.3s;
+    }
+    
+    .bg-white { background: var(--bg-primary) !important; }
+    .bg-zinc-50 { background: var(--bg-secondary) !important; }
+    .bg-zinc-100 { background: var(--bg-tertiary) !important; }
+    .text-zinc-900 { color: var(--text-primary) !important; }
+    .text-zinc-600 { color: var(--text-secondary) !important; }
+    .border-zinc-200 { border-color: var(--border-color) !important; }
+    
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      background: var(--indigo);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      transition: all 0.3s;
+    }
+    
+    .theme-toggle:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+    }
+
+    @keyframes fadeIn { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:translateY(0);} }
+    .fade-in { animation:fadeIn 0.5s ease-out forwards;}
+    
+    .img-thumb { 
+      object-fit:cover; 
+      height:80px; 
+      width:80px; 
+      border-radius:8px; 
+      box-shadow:0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .product-card { 
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+    }
+    
+    .product-card:hover { 
+      transform: translateY(-2px); 
+      box-shadow: 0 8px 24px rgba(99,102,241,0.12);
+    }
+    
+    .product-card-selected { 
+      box-shadow: 0 0 0 3px #6366f1; 
+    }
+    
+    .drag-over { 
+      background:#e0e7ff !important; 
+      border-color:#6366f1 !important; 
+    }
+    
+    .dropzone-area {
+      border: 2px dashed var(--border-color);
+      padding: 2rem;
+      border-radius: 12px;
+      transition: all 0.2s;
+      background: var(--bg-secondary);
+      text-align: center;
+    }
+    
+    .dropzone-area:hover {
+      border-color: #6366f1;
+      background: #eef2ff;
+    }
+    
+    .delete-image-btn { 
+      position:absolute; 
+      top:-8px; 
+      right:-8px; 
+      background:rgba(239,68,68,0.9); 
+      color:#fff; 
+      border-radius:50%; 
+      width:24px; 
+      height:24px; 
+      display:flex; 
+      align-items:center; 
+      justify-content:center; 
+      cursor:pointer; 
+      font-size:14px; 
+      z-index:1; 
+      transition: all 0.2s;
+    }
+    
+    .delete-image-btn:hover { 
+      background: #dc2626; 
+      transform: scale(1.1); 
+    }
+    
+    .batch-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .batch-item {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+    }
+    
+    .remove-batch-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: #fee2e2;
+      color: #dc2626;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .remove-batch-btn:hover {
+      background: #fecaca;
+      transform: scale(1.05);
+    }
+
+    .btn { 
+      font-weight:600; 
+      border-radius:8px; 
+      padding:10px 20px; 
+      transition:all 0.2s; 
+      display:inline-flex; 
+      gap:8px; 
+      align-items:center; 
+      cursor: pointer;
+      border: none;
+    }
+    
+    .btn:disabled { 
+      opacity: 0.5; 
+      cursor: not-allowed; 
+    }
+    
+    .btn-indigo { 
+      background:#6366f1; 
+      color:white;
+    }
+    
+    .btn-indigo:hover:not(:disabled) { 
+      background:#4f46e5; 
+      transform: translateY(-1px); 
+      box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+    }
+    
+    .btn-green { 
+      background:#22c55e; 
+      color:white;
+    }
+    
+    .btn-green:hover:not(:disabled) { 
+      background:#16a34a; 
+      transform: translateY(-1px);
+    }
+    
+    .btn-blue { 
+      background:#3b82f6;
+      color:white;
+    }
+    
+    .btn-blue:hover { 
+      background:#2563eb;
+    }
+    
+    .btn-purple { 
+      background:#a855f7;
+      color:white;
+    }
+    
+    .btn-purple:hover { 
+      background:#9333ea;
+    }
+    
+    .btn-gray { 
+      background:#e5e7eb;
+      color:#374151;
+    }
+    
+    .btn-gray:hover { 
+      background:#d1d5db; 
+    }
+    
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 1.5rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      margin-bottom: 1.5rem;
+    }
+    
+    .tab-container {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    
+    .tab-btn {
+      padding: 12px 24px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 8px;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    
+    .tab-btn:hover {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+    
+    .tab-btn.active {
+      background: white;
+      color: #6366f1;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+
+    .modal-bg { 
+      position:fixed; 
+      left:0; 
+      top:0; 
+      width:100vw; 
+      height:100vh; 
+      background:rgba(0,0,0,0.5); 
+      z-index:50; 
+      display:flex; 
+      justify-content:center; 
+      align-items:center;
+    }
+    
+    .modal-card { 
+      background: var(--bg-primary); 
+      border-radius:16px; 
+      box-shadow:0 8px 32px rgba(0,0,0,0.2); 
+      max-width:900px; 
+      width:92vw; 
+      padding:24px; 
+      position:relative; 
+      max-height: 90vh; 
+      overflow-y: auto;
+    }
+
+    .arabic-category { 
+      font-family: "Tajawal", "Cairo", Arial, sans-serif; 
+      font-weight: bold; 
+      color: #2563eb; 
+      direction: rtl;
+    }
+    
+    .progress-bar {
+      height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
+      transition: width 0.3s;
+      border-radius: 999px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">
+  <i class="fas fa-moon" id="themeIcon"></i>
+</button>
+
+<div class="max-w-7xl mx-auto">
+  <!-- Sticky Header -->
+  <div class="sticky-header">
+    <div class="text-center mb-4">
+      <h1 class="text-4xl font-bold mb-2 text-white flex justify-center items-center gap-3">
+        <i class="fas fa-magic"></i>
+        AI Product Generator
+        <i class="fas fa-shopping-cart"></i>
+      </h1>
+      <p class="text-white text-opacity-90">Génération automatique de produits pour WooCommerce</p>
+    </div>
+
+    <div class="flex gap-3 justify-center items-center flex-wrap mb-4">
+      <button id="uploadWooBtn" class="btn btn-purple" disabled>
+        <i class="fas fa-upload"></i> Upload to WooCommerce
+      </button>
+      <button id="postSocialBtn" class="btn btn-blue" disabled>
+        <i class="fas fa-share-alt"></i> Post to Social Media
+      </button>
+      <button id="singleProductBtn" class="btn btn-green">
+        <i class="fas fa-image"></i> 1 Image = 1 Product
+      </button>
+      <button id="groupProductBtn" class="btn btn-purple">
+        <i class="fas fa-images"></i> Group Images = 1 Product
+      </button>
+      <button id="saveSessionBtn" class="btn btn-gray">
+        <i class="fas fa-save"></i> Save Session
+      </button>
+      <button id="loadSessionBtn" class="btn btn-gray">
+        <i class="fas fa-folder-open"></i> Load Session
+      </button>
+      <input type="file" id="loadSessionFile" accept=".json" style="display:none;">
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="tab-container">
+      <button class="tab-btn active" data-tab="upload">
+        <i class="fas fa-upload"></i> Upload Images
+      </button>
+      <button class="tab-btn" data-tab="fetched">
+        <i class="fas fa-store"></i> Fetched Products (<span id="fetchedCount">0</span>)
+      </button>
+      <button class="tab-btn" data-tab="results">
+        <i class="fas fa-list"></i> Product Data (<span id="resultsCount">0</span>)
+      </button>
+    </div>
+  </div>
+
+  <div class="p-4">
+    <!-- Loading Overlay -->
+    <div id="loading" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 hidden">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-500 mx-auto"></div>
+        <p id="loadingMessage" class="mt-4 text-white text-lg font-medium">Chargement...</p>
+        <div id="progressBarContainer" class="max-w-md mx-auto mt-4 hidden">
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+          </div>
+          <p id="progressText" class="text-sm text-white mt-2">0 / 0</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Display -->
+    <div id="error" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded mb-4" role="alert">
+      <div class="flex items-start gap-3">
+        <i class="fas fa-exclamation-circle text-xl"></i>
+        <div class="flex-1" id="errorText"></div>
+        <button onclick="hideError()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab: Upload Images -->
+    <div id="tab-upload" class="tab-content active">
+      <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <h2 class="text-2xl font-bold text-indigo-700 mb-4">
+          <i class="fas fa-images"></i> Upload Images
+          <span id="uploadModeIndicator" class="text-sm font-normal text-zinc-500 ml-3">
+            (Mode: <span id="currentMode" class="font-semibold text-indigo-600">Single Product</span>)
+          </span>
+        </h2>
+        
+        <!-- Single Product Section -->
+        <div id="singleProductSection" class="mb-8">
+          <h3 class="text-xl font-semibold text-zinc-700 mb-4 flex items-center gap-2">
+            <i class="fas fa-image text-green-500"></i> 1 Image = 1 Product
+          </h3>
+          
+          <div id="singleBatchesContainer" class="batch-container mb-4"></div>
+          
+          <button id="addSingleBatchBtn" class="btn btn-green">
+            <i class="fas fa-plus"></i> Add Batch
+          </button>
+        </div>
+
+        <!-- Group Product Section -->
+        <div id="groupProductSection" class="mb-8" style="display:none;">
+          <h3 class="text-xl font-semibold text-zinc-700 mb-4 flex items-center gap-2">
+            <i class="fas fa-images text-purple-500"></i> Group Images = 1 Product
+          </h3>
+          
+          <div id="groupsContainer" class="batch-container mb-4"></div>
+          
+          <button id="addGroupBtn" class="btn btn-purple">
+            <i class="fas fa-plus"></i> Add Product Group
+          </button>
+        </div>
+
+        <div class="mt-6 text-center">
+          <button id="generateBtn" class="btn btn-indigo text-lg px-8 py-4" disabled>
+            <i class="fas fa-wand-magic-sparkles"></i> Generate Product Data
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Fetched Products from Store -->
+    <div id="tab-fetched" class="tab-content">
+      <div class="bg-white rounded-xl shadow-lg p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-2xl font-bold text-indigo-700">
+            <i class="fas fa-store"></i> Products from Store
+          </h2>
+          <button id="refreshStoreBtn" class="btn btn-blue">
+            <i class="fas fa-sync"></i> Refresh
+          </button>
+        </div>
+
+        <div class="mb-4">
+          <input 
+            type="text" 
+            id="searchFetched" 
+            placeholder="Search products..." 
+            class="w-full p-3 border rounded-lg"
+          >
+        </div>
+
+        <div id="fetchedProductsList" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"></div>
+        
+        <div id="fetchedEmptyState" class="empty-state">
+          <i class="fas fa-store text-6xl mb-4"></i>
+          <h3 class="text-xl font-semibold mb-2">No products fetched yet</h3>
+          <p class="mb-6">Click "Refresh" to load products from your WooCommerce store</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Product Data Results -->
+    <div id="tab-results" class="tab-content">
+      <div class="bg-white rounded-xl shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-indigo-700 mb-4">
+          <i class="fas fa-list"></i> Generated Products
+        </h2>
+
+        <div id="resultsList" class="space-y-6"></div>
+        
+        <div id="emptyState" class="empty-state">
+          <i class="fas fa-box-open text-6xl mb-4"></i>
+          <h3 class="text-xl font-semibold mb-2">No products generated yet</h3>
+          <p class="mb-6">Upload images and click "Generate Product Data" to get started</p>
+          <button onclick="switchTab('upload')" class="btn btn-indigo">
+            <i class="fas fa-arrow-left"></i> Go to Upload
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================
+   Configuration
+   ========================= */
+const CONFIG = {
+  WOOCOMMERCE: {
+    URL: 'https://farhashop.com',
+    CONSUMER_KEY: 'ck_aab52a81e7a2aa5bc4714323696f781c3b62c89b',
+    CONSUMER_SECRET: 'cs_a5fe650bd337aa30f1f358d86ba24bf6cacbfba4'
+  },
+  SOCIAL_WEBHOOK: {
+    URL: 'https://hook.eu2.make.com/ajtkr8a2aci5uuxc303ub9mlgjtvjsxj'
+  },
+  API_KEY: "AIzaSyBH3Jqa1J231H1bHHVYOkxBsbNIAKxs7p4",
+  GEMINI_API_URL: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent",
+  IMGBB_API_KEY: "c6e60c5e34fc9fa54aeb9c605388beb5",
+  IMGBB_API_URL: "https://api.imgbb.com/1/upload",
+  UPLOAD_MODE: {
+    SINGLE: 'single',
+    GROUP: 'group'
+  }
+};
+
+/* =========================
+   State
+   ========================= */
+let currentUploadMode = CONFIG.UPLOAD_MODE.SINGLE;
+let singleBatches = [];
+let groupProducts = [];
+let productDataStore = [];
+let fetchedProducts = [];
+let batchCounter = 0;
+let groupCounter = 0;
+
+/* =========================
+   Theme Toggle
+   ========================= */
+function toggleTheme() {
+  const html = document.documentElement;
+  const icon = document.getElementById('themeIcon');
+  const currentTheme = html.getAttribute('data-theme');
+  
+  if (currentTheme === 'dark') {
+    html.removeAttribute('data-theme');
+    icon.className = 'fas fa-moon';
+    localStorage.setItem('theme', 'light');
+  } else {
+    html.setAttribute('data-theme', 'dark');
+    icon.className = 'fas fa-sun';
+    localStorage.setItem('theme', 'dark');
+  }
+}
+
+// Load saved theme
+document.addEventListener('DOMContentLoaded', () => {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('themeIcon').className = 'fas fa-sun';
+  }
+});
+
+/* =========================
+   UI Utilities
+   ========================= */
+function showError(msg) {
+  document.getElementById('errorText').textContent = msg;
+  document.getElementById('error').classList.remove('hidden');
+}
+
+function hideError() {
+  document.getElementById('error').classList.add('hidden');
+}
+
+function showLoading(msg = "Loading...") {
+  document.getElementById('loadingMessage').textContent = msg;
+  document.getElementById('loading').classList.remove('hidden');
+}
+
+function hideLoading() {
+  document.getElementById('loading').classList.add('hidden');
+}
+
+function updateProgress(current, total) {
+  const progressBar = document.getElementById('progressBarContainer');
+  const progressFill = document.getElementById('progressFill');
+  const progressText = document.getElementById('progressText');
+  
+  progressBar.classList.remove('hidden');
+  const percentage = Math.round((current / total) * 100);
+  progressFill.style.width = `${percentage}%`;
+  progressText.textContent = `${current} / ${total}`;
+}
+
+/* =========================
+   Tab System
+   ========================= */
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  
+  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+  document.getElementById(`tab-${tabName}`).classList.add('active');
+  
+  updateCounts();
+}
+
+function updateCounts() {
+  document.getElementById('fetchedCount').textContent = fetchedProducts.length;
+  document.getElementById('resultsCount').textContent = productDataStore.length;
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+/* =========================
+   Upload Mode Toggle
+   ========================= */
+document.getElementById('singleProductBtn').addEventListener('click', () => {
+  currentUploadMode = CONFIG.UPLOAD_MODE.SINGLE;
+  document.getElementById('singleProductSection').style.display = 'block';
+  document.getElementById('groupProductSection').style.display = 'none';
+  document.getElementById('currentMode').textContent = 'Single Product';
+});
+
+document.getElementById('groupProductBtn').addEventListener('click', () => {
+  currentUploadMode = CONFIG.UPLOAD_MODE.GROUP;
+  document.getElementById('singleProductSection').style.display = 'none';
+  document.getElementById('groupProductSection').style.display = 'block';
+  document.getElementById('currentMode').textContent = 'Group Product';
+});
+
+/* =========================
+   Single Product Batches
+   ========================= */
+document.getElementById('addSingleBatchBtn').addEventListener('click', addSingleBatch);
+
+function addSingleBatch() {
+  const batchId = `batch-${batchCounter++}`;
+  const batch = { id: batchId, files: [], note: "" };
+  singleBatches.push(batch);
+  renderSingleBatches();
+}
+
+function renderSingleBatches() {
+  const container = document.getElementById('singleBatchesContainer');
+  container.innerHTML = '';
+  
+  singleBatches.forEach((batch, idx) => {
+    const batchEl = document.createElement('div');
+    batchEl.className = 'batch-item fade-in';
+    batchEl.innerHTML = `
+      <button class="remove-batch-btn" onclick="removeSingleBatch('${batch.id}')">
+        <i class="fas fa-times"></i> Remove
+      </button>
+      <h3 class="font-semibold text-base text-indigo-600 mb-3">
+        <i class="fas fa-box"></i> Batch ${idx + 1}
+      </h3>
+      <div class="mb-3">
+        <div class="flex flex-wrap gap-2 mb-2" id="gallery-${batch.id}"></div>
+        <div class="dropzone-area" id="dropzone-${batch.id}">
+          <i class="fas fa-cloud-upload-alt text-4xl text-indigo-400 mb-2"></i>
+          <input type="file" id="upload-${batch.id}" accept="image/*" multiple class="hidden">
+          <label for="upload-${batch.id}" class="cursor-pointer block">
+            <div class="text-sm font-semibold text-indigo-600 mb-1">Cliquez ou glissez-déposez des images</div>
+            <div class="text-xs text-zinc-400">Chaque image = 1 produit séparé</div>
+          </label>
+        </div>
+      </div>
+      <textarea 
+        class="w-full p-3 border rounded-lg text-sm" 
+        rows="2" 
+        placeholder="Optional: Note pour l'IA (ex: 'couleurs: rouge, bleu' ou 'tailles: S, M, L')"
+      >${batch.note}</textarea>
+    `;
+    
+    const galleryDiv = batchEl.querySelector(`#gallery-${batch.id}`);
+    batch.files.forEach((imgObj, i) => {
+      const thumbDiv = document.createElement('div');
+      thumbDiv.className = 'relative';
+      const img = document.createElement('img');
+      img.className = 'img-thumb';
+      img.src = imgObj.preview || '';
+      thumbDiv.appendChild(img);
+      
+      const delBtn = document.createElement('div');
+      delBtn.className = 'delete-image-btn';
+      delBtn.innerHTML = '<i class="fas fa-times"></i>';
+      delBtn.onclick = () => removeSingleBatchImage(batch.id, i);
+      thumbDiv.appendChild(delBtn);
+      galleryDiv.appendChild(thumbDiv);
+    });
+
+    const input = batchEl.querySelector(`#upload-${batch.id}`);
+    const dropzone = batchEl.querySelector(`#dropzone-${batch.id}`);
+    const textarea = batchEl.querySelector('textarea');
+    
+    input.addEventListener('change', (e) => handleSingleBatchFiles(e, batch.id));
+    textarea.addEventListener('input', () => { batch.note = textarea.value; });
+    
+    setupDropzone(dropzone, input, (files) => handleSingleBatchFiles({ target: { files } }, batch.id));
+    
+    container.appendChild(batchEl);
+  });
+  
+  enableGenerateBtn();
+}
+
+window.removeSingleBatch = function(batchId) {
+  singleBatches = singleBatches.filter(b => b.id !== batchId);
+  renderSingleBatches();
+}
+
+async function handleSingleBatchFiles(event, batchId) {
+  const batch = singleBatches.find(b => b.id === batchId);
+  if (!batch || !event.target.files.length) return;
+  
+  for (const file of Array.from(event.target.files)) {
+    const imgObj = { file, preview: '', url: '' };
+    batch.files.push(imgObj);
+    
+    try {
+      const b64 = await fileToBase64(file);
+      imgObj.preview = `data:image/jpeg;base64,${b64}`;
+      imgObj.url = await uploadToImgbb(b64, file.name);
+    } catch (e) {
+      showError(`Image upload failed: ${e.message}`);
+    }
+    
+    renderSingleBatches();
+  }
+}
+
+window.removeSingleBatchImage = function(batchId, idx) {
+  const batch = singleBatches.find(b => b.id === batchId);
+  if (batch) {
+    batch.files.splice(idx, 1);
+    renderSingleBatches();
+  }
+}
+
+/* =========================
+   Group Products
+   ========================= */
+document.getElementById('addGroupBtn').addEventListener('click', addGroupProduct);
+
+function addGroupProduct() {
+  const groupId = `group-${groupCounter++}`;
+  const group = { id: groupId, files: [], note: "" };
+  groupProducts.push(group);
+  renderGroupProducts();
+}
+
+function renderGroupProducts() {
+  const container = document.getElementById('groupsContainer');
+  container.innerHTML = '';
+  
+  groupProducts.forEach((group, idx) => {
+    const groupEl = document.createElement('div');
+    groupEl.className = 'batch-item fade-in';
+    groupEl.innerHTML = `
+      <button class="remove-batch-btn" onclick="removeGroupProduct('${group.id}')">
+        <i class="fas fa-times"></i> Remove
+      </button>
+      <h3 class="font-semibold text-base text-purple-600 mb-3">
+        <i class="fas fa-layer-group"></i> Product ${idx + 1}
+      </h3>
+      <div class="mb-3">
+        <div class="flex flex-wrap gap-2 mb-2" id="gallery-${group.id}"></div>
+        <div class="dropzone-area" id="dropzone-${group.id}">
+          <i class="fas fa-images text-4xl text-purple-400 mb-2"></i>
+          <input type="file" id="upload-${group.id}" accept="image/*" multiple class="hidden">
+          <label for="upload-${group.id}" class="cursor-pointer block">
+            <div class="text-sm font-semibold text-purple-600 mb-1">Cliquez ou glissez-déposez des images</div>
+            <div class="text-xs text-zinc-400">Toutes les images = 1 produit avec galerie</div>
+          </label>
+        </div>
+      </div>
+      <textarea 
+        class="w-full p-3 border rounded-lg text-sm" 
+        rows="2" 
+        placeholder="Optional: Note pour l'IA"
+      >${group.note}</textarea>
+    `;
+    
+    const galleryDiv = groupEl.querySelector(`#gallery-${group.id}`);
+    group.files.forEach((imgObj, i) => {
+      const thumbDiv = document.createElement('div');
+      thumbDiv.className = 'relative';
+      const img = document.createElement('img');
+      img.className = 'img-thumb';
+      img.src = imgObj.preview || '';
+      img.title = `Image ${i}`;
+      thumbDiv.appendChild(img);
+      
+      const indexBadge = document.createElement('div');
+      indexBadge.className = 'absolute bottom-1 left-1 bg-purple-600 text-white text-xs font-bold rounded px-1.5 py-0.5';
+      indexBadge.textContent = i;
+      thumbDiv.appendChild(indexBadge);
+      
+      const delBtn = document.createElement('div');
+      delBtn.className = 'delete-image-btn';
+      delBtn.innerHTML = '<i class="fas fa-times"></i>';
+      delBtn.onclick = () => removeGroupImage(group.id, i);
+      thumbDiv.appendChild(delBtn);
+      galleryDiv.appendChild(thumbDiv);
+    });
+
+    const input = groupEl.querySelector(`#upload-${group.id}`);
+    const dropzone = groupEl.querySelector(`#dropzone-${group.id}`);
+    const textarea = groupEl.querySelector('textarea');
+    
+    input.addEventListener('change', (e) => handleGroupFiles(e, group.id));
+    textarea.addEventListener('input', () => { group.note = textarea.value; });
+    
+    setupDropzone(dropzone, input, (files) => handleGroupFiles({ target: { files } }, group.id));
+    
+    container.appendChild(groupEl);
+  });
+  
+  enableGenerateBtn();
+}
+
+window.removeGroupProduct = function(groupId) {
+  groupProducts = groupProducts.filter(g => g.id !== groupId);
+  renderGroupProducts();
+}
+
+async function handleGroupFiles(event, groupId) {
+  const group = groupProducts.find(g => g.id === groupId);
+  if (!group || !event.target.files.length) return;
+  
+  for (const file of Array.from(event.target.files)) {
+    const imgObj = { file, preview: '', url: '' };
+    group.files.push(imgObj);
+    
+    try {
+      const b64 = await fileToBase64(file);
+      imgObj.preview = `data:image/jpeg;base64,${b64}`;
+      imgObj.url = await uploadToImgbb(b64, file.name);
+    } catch (e) {
+      showError(`Image upload failed: ${e.message}`);
+    }
+    
+    renderGroupProducts();
+  }
+}
+
+window.removeGroupImage = function(groupId, idx) {
+  const group = groupProducts.find(g => g.id === groupId);
+  if (group) {
+    group.files.splice(idx, 1);
+    renderGroupProducts();
+  }
+}
+
+/* =========================
+   Dropzone Helper
+   ========================= */
+function setupDropzone(dropzone, input, handler) {
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropzone.addEventListener(eventName, () => dropzone.classList.add('drag-over'));
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, () => dropzone.classList.remove('drag-over'));
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length) handler(files);
+  });
+}
+
+/* =========================
+   Image Upload
+   ========================= */
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = error => reject(error);
+  });
+}
+
+async function uploadToImgbb(base64, filename) {
+  const formData = new FormData();
+  formData.append("key", CONFIG.IMGBB_API_KEY);
+  formData.append("image", base64);
+  formData.append("name", filename);
+  
+  const response = await fetch(CONFIG.IMGBB_API_URL, {
+    method: "POST",
+    body: formData
+  });
+  
+  if (!response.ok) throw new Error("ImgBB upload failed");
+  
+  const data = await response.json();
+  if (!data.success || !data.data || !data.data.url) {
+    throw new Error("ImgBB upload failed: No URL returned");
+  }
+  
+  return data.data.url;
+}
+
+/* =========================
+   Enable Buttons
+   ========================= */
+function enableGenerateBtn() {
+  const hasSingle = singleBatches.some(b => b.files.length > 0);
+  const hasGroups = groupProducts.some(g => g.files.length > 0);
+  document.getElementById('generateBtn').disabled = !hasSingle && !hasGroups;
+}
+
+/* =========================
+   Fetch Products from Store
+   ========================= */
+document.getElementById('refreshStoreBtn').addEventListener('click', fetchProductsFromStore);
+
+async function fetchProductsFromStore() {
+  showLoading('Fetching products from WooCommerce...');
+  
+  try {
+    const auth = btoa(`${CONFIG.WOOCOMMERCE.CONSUMER_KEY}:${CONFIG.WOOCOMMERCE.CONSUMER_SECRET}`);
+    const response = await fetch(
+      `${CONFIG.WOOCOMMERCE.URL}/wp-json/wc/v3/products?per_page=50`,
+      {
+        headers: {
+          'Authorization': `Basic ${auth}`
+        }
+      }
+    );
+    
+    if (!response.ok) throw new Error('Failed to fetch products');
+    
+    fetchedProducts = await response.json();
+    renderFetchedProducts();
+    hideError();
+  } catch (error) {
+    showError('Failed to fetch products: ' + error.message);
+  }
+  
+  hideLoading();
+  updateCounts();
+}
+
+function renderFetchedProducts() {
+  const container = document.getElementById('fetchedProductsList');
+  const emptyState = document.getElementById('fetchedEmptyState');
+  
+  if (fetchedProducts.length === 0) {
+    container.style.display = 'none';
+    emptyState.style.display = 'block';
+    return;
+  }
+  
+  container.style.display = 'grid';
+  emptyState.style.display = 'none';
+  container.innerHTML = '';
+  
+  fetchedProducts.forEach(product => {
+    const card = document.createElement('div');
+    card.className = 'product-card rounded-lg p-4 shadow-sm';
+    card.innerHTML = `
+      <img src="${product.images[0]?.src || ''}" class="w-full h-48 object-cover rounded-lg mb-3" alt="${product.name}">
+      <h3 class="font-bold text-lg mb-2">${product.name}</h3>
+      <p class="text-green-600 font-bold text-xl mb-3">${product.price} ${product.currency || 'MAD'}</p>
+      <div class="flex gap-2">
+        <button class="btn btn-blue text-sm flex-1" onclick="editProduct(${product.id})">
+          <i class="fas fa-edit"></i> Edit
+        </button>
+        <button class="btn btn-gray text-sm flex-1" onclick="deleteProduct(${product.id})">
+          <i class="fas fa-trash"></i> Delete
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+window.editProduct = function(productId) {
+  alert(`Edit product ${productId} - Feature coming soon!`);
+}
+
+window.deleteProduct = async function(productId) {
+  if (!confirm('Delete this product?')) return;
+  
+  try {
+    const auth = btoa(`${CONFIG.WOOCOMMERCE.CONSUMER_KEY}:${CONFIG.WOOCOMMERCE.CONSUMER_SECRET}`);
+    const response = await fetch(
+      `${CONFIG.WOOCOMMERCE.URL}/wp-json/wc/v3/products/${productId}?force=true`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Basic ${auth}`
+        }
+      }
+    );
+    
+    if (!response.ok) throw new Error('Failed to delete product');
+    
+    fetchedProducts = fetchedProducts.filter(p => p.id !== productId);
+    renderFetchedProducts();
+    updateCounts();
+  } catch (error) {
+    showError('Failed to delete product: ' + error.message);
+  }
+}
+
+/* =========================
+   Generate Products
+   ========================= */
+document.getElementById('generateBtn').addEventListener('click', startGeneration);
+
+async function startGeneration() {
+  hideError();
+  showLoading('Generating product data...');
+  
+  const tasks = [];
+  
+  // Single batches
+  singleBatches.forEach(batch => {
+    batch.files.forEach(imgObj => {
+      if (imgObj.url) {
+        tasks.push({ files: [imgObj], note: batch.note, mode: 'single' });
+      }
+    });
+  });
+  
+  // Group products
+  groupProducts.forEach(group => {
+    if (group.files.length > 0) {
+      tasks.push({ files: group.files, note: group.note, mode: 'group' });
+    }
+  });
+  
+  if (tasks.length === 0) {
+    showError('Please add images first');
+    hideLoading();
+    return;
+  }
+  
+  productDataStore = [];
+  
+  for (let i = 0; i < tasks.length; i++) {
+    updateProgress(i + 1, tasks.length);
+    
+    try {
+      const product = await processTask(tasks[i]);
+      productDataStore.push(product);
+    } catch (error) {
+      showError(`Product ${i + 1} failed: ${error.message}`);
+    }
+  }
+  
+  renderResults();
+  switchTab('results');
+  hideLoading();
+  updateCounts();
+}
+
+async function processTask(task) {
+  const base64s = await Promise.all(task.files.map(f => fileToBase64(f.file)));
+  
+  const prompt = `You are an e-commerce expert. Analyze these images and generate WooCommerce product data.
+  
+Return JSON with:
+- title
+- description
+- short_description
+- price (in MAD)
+- tags (array)
+- categories (array)
+
+User note: ${task.note || 'None'}
+
+Return ONLY valid JSON.`;
+
+  const parts = [{ text: prompt }];
+  base64s.forEach(b64 => {
+    parts.push({
+      inlineData: {
+        mimeType: "image/jpeg",
+        data: b64
+      }
+    });
+  });
+
+  const payload = {
+    contents: [{ parts }],
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
+  };
+
+  const response = await fetch(
+    `${CONFIG.GEMINI_API_URL}?key=${CONFIG.API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }
+  );
+
+  if (!response.ok) throw new Error('AI API error');
+
+  const data = await response.json();
+  const aiText = data.candidates[0].content.parts[0].text;
+  const product = JSON.parse(aiText);
+
+  return {
+    ...product,
+    galleryUrls: task.files.map(f => f.url),
+    note: task.note,
+    mode: task.mode
+  };
+}
+
+function renderResults() {
+  const container = document.getElementById('resultsList');
+  const emptyState = document.getElementById('emptyState');
+  
+  if (productDataStore.length === 0) {
+    container.style.display = 'none';
+    emptyState.style.display = 'block';
+    return;
+  }
+  
+  container.style.display = 'block';
+  emptyState.style.display = 'none';
+  container.innerHTML = '';
+  
+  productDataStore.forEach((product, index) => {
+    const card = document.createElement('div');
+    card.className = 'product-card rounded-lg p-6 fade-in';
+    card.innerHTML = `
+      <div class="flex gap-4">
+        <img src="${product.galleryUrls[0]}" class="w-32 h-32 object-cover rounded-lg" alt="${product.title}">
+        <div class="flex-1">
+          <h3 class="font-bold text-xl mb-2">${product.title}</h3>
+          <p class="text-sm text-zinc-600 mb-2">${product.short_description || ''}</p>
+          <p class="text-green-600 font-bold text-xl mb-3">${product.price} MAD</p>
+          <div class="flex flex-wrap gap-2 mb-3">
+            ${(product.tags || []).map(tag => `<span class="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs">${tag}</span>`).join('')}
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-blue text-sm" onclick="editGeneratedProduct(${index})">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <button class="btn btn-gray text-sm" onclick="deleteGeneratedProduct(${index})">
+              <i class="fas fa-trash"></i> Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+  
+  document.getElementById('uploadWooBtn').disabled = false;
+}
+
+window.editGeneratedProduct = function(index) {
+  alert(`Edit product ${index} - Feature coming soon!`);
+}
+
+window.deleteGeneratedProduct = function(index) {
+  if (!confirm('Delete this product?')) return;
+  productDataStore.splice(index, 1);
+  renderResults();
+  updateCounts();
+}
+
+/* =========================
+   Upload to WooCommerce
+   ========================= */
+document.getElementById('uploadWooBtn').addEventListener('click', uploadToWooCommerce);
+
+async function uploadToWooCommerce() {
+  if (productDataStore.length === 0) return;
+  
+  showLoading('Uploading to WooCommerce...');
+  
+  let uploaded = 0;
+  const auth = btoa(`${CONFIG.WOOCOMMERCE.CONSUMER_KEY}:${CONFIG.WOOCOMMERCE.CONSUMER_SECRET}`);
+  
+  for (let i = 0; i < productDataStore.length; i++) {
+    updateProgress(i + 1, productDataStore.length);
+    const product = productDataStore[i];
+    
+    try {
+      const wooProduct = {
+        name: product.title,
+        type: 'simple',
+        regular_price: String(product.price),
+        description: product.description,
+        short_description: product.short_description,
+        categories: (product.categories || []).map(cat => ({ name: cat })),
+        tags: (product.tags || []).map(tag => ({ name: tag })),
+        images: product.galleryUrls.map((url, idx) => ({ src: url, position: idx }))
+      };
+      
+      const response = await fetch(
+        `${CONFIG.WOOCOMMERCE.URL}/wp-json/wc/v3/products`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(wooProduct)
+        }
+      );
+      
+      if (!response.ok) throw new Error('Upload failed');
+      
+      uploaded++;
+    } catch (error) {
+      showError(`Product ${i + 1} upload failed: ${error.message}`);
+    }
+  }
+  
+  hideLoading();
+  alert(`✅ Successfully uploaded ${uploaded} of ${productDataStore.length} products!`);
+}
+
+/* =========================
+   Session Management
+   ========================= */
+document.getElementById('saveSessionBtn').addEventListener('click', () => {
+  const session = {
+    singleBatches: singleBatches.map(b => ({
+      ...b,
+      files: b.files.map(f => ({ preview: f.preview, url: f.url }))
+    })),
+    groupProducts: groupProducts.map(g => ({
+      ...g,
+      files: g.files.map(f => ({ preview: f.preview, url: f.url }))
+    })),
+    productDataStore
+  };
+  
+  const blob = new Blob([JSON.stringify(session, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `session-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('loadSessionBtn').addEventListener('click', () => {
+  document.getElementById('loadSessionFile').click();
+});
+
+document.getElementById('loadSessionFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const session = JSON.parse(evt.target.result);
+      singleBatches = session.singleBatches || [];
+      groupProducts = session.groupProducts || [];
+      productDataStore = session.productDataStore || [];
+      
+      renderSingleBatches();
+      renderGroupProducts();
+      renderResults();
+      enableGenerateBtn();
+      updateCounts();
+      
+      alert('✅ Session loaded successfully!');
+    } catch (error) {
+      showError('Failed to load session: ' + error.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* =========================
+   Initialize
+   ========================= */
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('✅ AI Product Generator initialized');
+  updateCounts();
+});
+</script>
+</body>
+</html>
